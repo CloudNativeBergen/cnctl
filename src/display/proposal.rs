@@ -2,16 +2,16 @@ use std::fmt::Write;
 
 use colored::Colorize;
 
-use crate::types::{portable_text_to_plain, Proposal};
+use crate::types::{portable_text_to_plain, Proposal, ProposalStatus};
 
 /// Render proposal details into a `String` (for scrollable views, etc.).
 pub fn render_proposal_detail(proposal: &Proposal) -> String {
     let mut buf = String::new();
     writeln!(buf, "{}", proposal.title.bold()).unwrap();
     writeln!(buf, "ID:       {}", proposal.id).unwrap();
-    writeln!(buf, "Status:   {}", colorize_status(&proposal.status)).unwrap();
-    if let Some(format) = &proposal.format {
-        writeln!(buf, "Format:   {}", humanize_format(format)).unwrap();
+    writeln!(buf, "Status:   {}", colorize_status(proposal.status)).unwrap();
+    if let Some(format) = proposal.format {
+        writeln!(buf, "Format:   {format}").unwrap();
     }
     if let Some(level) = &proposal.level {
         writeln!(buf, "Level:    {}", capitalize(level)).unwrap();
@@ -81,57 +81,32 @@ pub fn print_proposal_detail(proposal: &Proposal) {
     print!("{}", render_proposal_detail(proposal));
 }
 
-fn colorize_status(status: &str) -> String {
-    let label = humanize_status(status);
+fn colorize_status(status: ProposalStatus) -> String {
+    let label = status.to_string();
     match status {
-        "submitted" => label.yellow().to_string(),
-        "accepted" => label.green().to_string(),
-        "confirmed" => label.green().bold().to_string(),
-        "rejected" => label.red().to_string(),
-        "waitlisted" => label.cyan().to_string(),
-        "withdrawn" | "draft" => label.dimmed().to_string(),
-        _ => label.to_string(),
+        ProposalStatus::Submitted => label.yellow().to_string(),
+        ProposalStatus::Accepted => label.green().to_string(),
+        ProposalStatus::Confirmed => label.green().bold().to_string(),
+        ProposalStatus::Rejected => label.red().to_string(),
+        ProposalStatus::Waitlisted => label.cyan().to_string(),
+        ProposalStatus::Withdrawn | ProposalStatus::Draft | ProposalStatus::Deleted => {
+            label.dimmed().to_string()
+        }
     }
 }
 
-pub fn humanize_format(format: &str) -> &str {
-    match format {
-        "lightning_10" => "Lightning 10min",
-        "presentation_20" => "Talk 20min",
-        "presentation_25" => "Talk 25min",
-        "presentation_40" => "Talk 40min",
-        "presentation_45" => "Talk 45min",
-        "workshop_120" => "Workshop 2h",
-        "workshop_240" => "Workshop 4h",
-        other => other,
-    }
-}
-
-pub fn pad_and_colorize_status(status: &str, width: usize) -> String {
-    let label = humanize_status(status);
+pub fn pad_and_colorize_status(status: ProposalStatus, width: usize) -> String {
+    let label = status.to_string();
     let padded = format!("{label:<width$}");
     match status {
-        "submitted" => padded.yellow().to_string(),
-        "accepted" => padded.green().to_string(),
-        "confirmed" => padded.green().bold().to_string(),
-        "rejected" => padded.red().to_string(),
-        "waitlisted" => padded.cyan().to_string(),
-        "withdrawn" | "draft" => padded.dimmed().to_string(),
-        _ => padded,
-    }
-}
-
-pub fn humanize_status(status: &str) -> &str {
-    match status {
-        "submitted" => "Submitted",
-        "accepted" => "Accepted",
-        "confirmed" => "Confirmed",
-        "rejected" => "Rejected",
-        "waitlisted" => "Waitlisted",
-        "withdrawn" => "Withdrawn",
-        "draft" => "Draft",
-        "deleted" => "Deleted",
-        other => other,
+        ProposalStatus::Submitted => padded.yellow().to_string(),
+        ProposalStatus::Accepted => padded.green().to_string(),
+        ProposalStatus::Confirmed => padded.green().bold().to_string(),
+        ProposalStatus::Rejected => padded.red().to_string(),
+        ProposalStatus::Waitlisted => padded.cyan().to_string(),
+        ProposalStatus::Withdrawn | ProposalStatus::Draft | ProposalStatus::Deleted => {
+            padded.dimmed().to_string()
+        }
     }
 }
 

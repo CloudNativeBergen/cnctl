@@ -7,14 +7,14 @@ use dialoguer::FuzzySelect;
 use super::require_client;
 use crate::client::TrpcClient;
 use crate::display;
-use crate::types::SponsorForConference;
+use crate::types::{SponsorForConference, SponsorStatus};
 use crate::ui;
 
 #[derive(Args)]
 pub struct ListArgs {
     /// Filter by status (comma-separated)
-    #[arg(long, value_delimiter = ',')]
-    pub status: Option<Vec<String>>,
+    #[arg(long, value_delimiter = ',', value_enum)]
+    pub status: Option<Vec<SponsorStatus>>,
 
     /// Output as JSON
     #[arg(long)]
@@ -67,7 +67,7 @@ pub async fn fetch_all(client: &TrpcClient) -> Result<Vec<SponsorForConference>>
 
 fn filter_by_status<'a>(
     sponsors: &'a [SponsorForConference],
-    statuses: Option<&[String]>,
+    statuses: Option<&[SponsorStatus]>,
 ) -> Vec<&'a SponsorForConference> {
     match statuses {
         Some(s) if !s.is_empty() => sponsors.iter().filter(|sp| s.contains(&sp.status)).collect(),

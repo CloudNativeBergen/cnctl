@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use colored::Colorize;
 
-use crate::types::SponsorForConference;
+use crate::types::{SponsorForConference, SponsorStatus};
 
 pub fn print_sponsor_list(sponsors: &[SponsorForConference]) {
     if sponsors.is_empty() {
@@ -30,7 +30,7 @@ pub fn format_sponsor_row(s: &SponsorForConference) -> String {
     format!(
         "{:<20} {:<23} {:<14} {}",
         truncate(name, 18),
-        colorize_status(&s.status),
+        colorize_status(s.status),
         contract,
         tier
     )
@@ -46,7 +46,7 @@ pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
 
     writeln!(buf, "{}", name.bold()).unwrap();
     writeln!(buf, "ID:              {}", sponsor.id).unwrap();
-    writeln!(buf, "Status:          {}", colorize_status(&sponsor.status)).unwrap();
+    writeln!(buf, "Status:          {}", colorize_status(sponsor.status)).unwrap();
     if let Some(contract) = &sponsor.contract_status {
         writeln!(buf, "Contract:        {contract}").unwrap();
     }
@@ -111,14 +111,14 @@ pub fn print_sponsor_detail(sponsor: &SponsorForConference) {
     print!("{}", render_sponsor_detail(sponsor));
 }
 
-fn colorize_status(status: &str) -> String {
+fn colorize_status(status: SponsorStatus) -> String {
+    let label = status.to_string();
     match status {
-        "closed-won" => status.green().to_string(),
-        "negotiating" => status.yellow().to_string(),
-        "contacted" => status.cyan().to_string(),
-        "prospect" => status.dimmed().to_string(),
-        "closed-lost" => status.red().to_string(),
-        _ => status.to_string(),
+        SponsorStatus::ClosedWon => label.green().to_string(),
+        SponsorStatus::Negotiating => label.yellow().to_string(),
+        SponsorStatus::Contacted => label.cyan().to_string(),
+        SponsorStatus::Prospect => label.dimmed().to_string(),
+        SponsorStatus::ClosedLost => label.red().to_string(),
     }
 }
 

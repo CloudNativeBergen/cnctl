@@ -1,6 +1,94 @@
+use std::fmt;
+
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use super::null_to_vec;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, ValueEnum)]
+#[serde(rename_all = "camelCase")]
+pub enum ProposalStatus {
+    Submitted,
+    Accepted,
+    Confirmed,
+    Waitlisted,
+    Rejected,
+    Withdrawn,
+    Draft,
+    Deleted,
+}
+
+impl fmt::Display for ProposalStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Submitted => write!(f, "Submitted"),
+            Self::Accepted => write!(f, "Accepted"),
+            Self::Confirmed => write!(f, "Confirmed"),
+            Self::Waitlisted => write!(f, "Waitlisted"),
+            Self::Rejected => write!(f, "Rejected"),
+            Self::Withdrawn => write!(f, "Withdrawn"),
+            Self::Draft => write!(f, "Draft"),
+            Self::Deleted => write!(f, "Deleted"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
+pub enum ProposalFormat {
+    #[serde(rename = "lightning_10")]
+    #[value(name = "lightning_10")]
+    Lightning10,
+    #[serde(rename = "presentation_20")]
+    #[value(name = "presentation_20")]
+    Presentation20,
+    #[serde(rename = "presentation_25")]
+    #[value(name = "presentation_25")]
+    Presentation25,
+    #[serde(rename = "presentation_40")]
+    #[value(name = "presentation_40")]
+    Presentation40,
+    #[serde(rename = "presentation_45")]
+    #[value(name = "presentation_45")]
+    Presentation45,
+    #[serde(rename = "workshop_120")]
+    #[value(name = "workshop_120")]
+    Workshop120,
+    #[serde(rename = "workshop_240")]
+    #[value(name = "workshop_240")]
+    Workshop240,
+}
+
+impl ProposalFormat {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Lightning10 => "Lightning 10min",
+            Self::Presentation20 => "Talk 20min",
+            Self::Presentation25 => "Talk 25min",
+            Self::Presentation40 => "Talk 40min",
+            Self::Presentation45 => "Talk 45min",
+            Self::Workshop120 => "Workshop 2h",
+            Self::Workshop240 => "Workshop 4h",
+        }
+    }
+
+    pub fn api_name(self) -> &'static str {
+        match self {
+            Self::Lightning10 => "lightning_10",
+            Self::Presentation20 => "presentation_20",
+            Self::Presentation25 => "presentation_25",
+            Self::Presentation40 => "presentation_40",
+            Self::Presentation45 => "presentation_45",
+            Self::Workshop120 => "workshop_120",
+            Self::Workshop240 => "workshop_240",
+        }
+    }
+}
+
+impl fmt::Display for ProposalFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.label())
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -8,9 +96,9 @@ pub struct Proposal {
     #[serde(rename = "_id")]
     pub id: String,
     pub title: String,
-    pub status: String,
+    pub status: ProposalStatus,
     #[serde(default)]
-    pub format: Option<String>,
+    pub format: Option<ProposalFormat>,
     #[serde(default)]
     pub level: Option<String>,
     #[serde(default)]
@@ -158,8 +246,8 @@ mod tests {
         let p: Proposal = serde_json::from_value(json).unwrap();
         assert_eq!(p.id, "talk-1");
         assert_eq!(p.title, "Kubernetes Best Practices");
-        assert_eq!(p.status, "submitted");
-        assert_eq!(p.format.as_deref(), Some("presentation_25"));
+        assert_eq!(p.status, ProposalStatus::Submitted);
+        assert_eq!(p.format, Some(ProposalFormat::Presentation25));
         assert_eq!(p.speakers.len(), 1);
         assert_eq!(p.speakers[0].name, "Alice");
         assert_eq!(p.topics.len(), 2);
@@ -201,7 +289,7 @@ mod tests {
 
         let p: Proposal = serde_json::from_value(json).unwrap();
         assert_eq!(p.id, "talk-3");
-        assert_eq!(p.status, "accepted");
+        assert_eq!(p.status, ProposalStatus::Accepted);
     }
 
     #[test]

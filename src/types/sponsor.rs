@@ -1,13 +1,38 @@
+use std::fmt;
+
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
 use super::null_to_vec;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
+#[serde(rename_all = "kebab-case")]
+pub enum SponsorStatus {
+    Prospect,
+    Contacted,
+    Negotiating,
+    ClosedWon,
+    ClosedLost,
+}
+
+impl fmt::Display for SponsorStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Prospect => write!(f, "prospect"),
+            Self::Contacted => write!(f, "contacted"),
+            Self::Negotiating => write!(f, "negotiating"),
+            Self::ClosedWon => write!(f, "closed-won"),
+            Self::ClosedLost => write!(f, "closed-lost"),
+        }
+    }
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorForConference {
     #[serde(rename = "_id")]
     pub id: String,
-    pub status: String,
+    pub status: SponsorStatus,
     #[serde(default)]
     pub contract_status: Option<String>,
     #[serde(default)]
@@ -116,7 +141,7 @@ mod tests {
 
         let s: SponsorForConference = serde_json::from_value(json).unwrap();
         assert_eq!(s.id, "sfc-1");
-        assert_eq!(s.status, "closed-won");
+        assert_eq!(s.status, SponsorStatus::ClosedWon);
         assert_eq!(s.contract_status.as_deref(), Some("contract-signed"));
         assert_eq!(s.sponsor.as_ref().unwrap().name, "Acme Corp");
         assert_eq!(s.tier.as_ref().unwrap().title, "Gold");
@@ -140,7 +165,7 @@ mod tests {
 
         let s: SponsorForConference = serde_json::from_value(json).unwrap();
         assert_eq!(s.id, "sfc-2");
-        assert_eq!(s.status, "prospect");
+        assert_eq!(s.status, SponsorStatus::Prospect);
         assert!(s.sponsor.is_none());
         assert!(s.tier.is_none());
         assert!(s.contact_persons.is_empty());
@@ -162,7 +187,7 @@ mod tests {
 
         let s: SponsorForConference = serde_json::from_value(json).unwrap();
         assert_eq!(s.id, "sfc-3");
-        assert_eq!(s.status, "contacted");
+        assert_eq!(s.status, SponsorStatus::Contacted);
     }
 
     #[test]
