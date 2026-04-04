@@ -111,8 +111,11 @@ async fn proposals_list_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::list_with(&client).await;
-    assert!(result.is_ok(), "list_with failed: {result:?}");
+    let result = proposals::fetch_all(&client).await;
+    assert!(result.is_ok(), "fetch_all failed: {result:?}");
+    let proposals = result.unwrap();
+    assert_eq!(proposals.len(), 2);
+    assert_eq!(proposals[0].title, "Scaling Kubernetes in Production");
 }
 
 #[tokio::test]
@@ -128,8 +131,9 @@ async fn proposals_list_empty_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::list_with(&client).await;
+    let result = proposals::fetch_all(&client).await;
     assert!(result.is_ok());
+    assert!(result.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -299,8 +303,9 @@ async fn full_pipeline_proposals_e2e() {
     let client = TrpcClient::from_config(&loaded);
 
     // Step 3: Run the actual command logic
-    let result = proposals::list_with(&client).await;
+    let result = proposals::fetch_all(&client).await;
     assert!(result.is_ok(), "Full pipeline failed: {result:?}");
+    assert_eq!(result.unwrap().len(), 2);
 }
 
 #[tokio::test]

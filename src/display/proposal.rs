@@ -2,34 +2,6 @@ use colored::Colorize;
 
 use crate::types::Proposal;
 
-pub fn print_proposal_list(proposals: &[Proposal]) {
-    if proposals.is_empty() {
-        println!("No proposals found.");
-        return;
-    }
-
-    println!("{:<40} {:<12} {:<16} TITLE", "ID", "STATUS", "FORMAT");
-    println!("{}", "─".repeat(100));
-
-    for p in proposals {
-        let status = colorize_status(&p.status);
-        let format = p.format.as_deref().unwrap_or("-");
-        let speakers: Vec<&str> = p.speakers.iter().map(|s| s.name.as_str()).collect();
-        let speaker_str = if speakers.is_empty() {
-            String::new()
-        } else {
-            format!(" ({})", speakers.join(", "))
-        };
-
-        println!(
-            "{:<40} {:<21} {:<16} {}{}",
-            p.id, status, format, p.title, speaker_str
-        );
-    }
-
-    println!("\n{} proposals", proposals.len());
-}
-
 pub fn print_proposal_detail(proposal: &Proposal) {
     println!("{}", proposal.title.bold());
     println!("ID:       {}", proposal.id);
