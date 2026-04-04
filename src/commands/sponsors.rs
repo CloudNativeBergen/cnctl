@@ -28,7 +28,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
     if args.json {
         let filtered = filter_by_status(&all, args.status.as_deref());
         println!("{}", serde_json::to_string_pretty(&filtered)?);
-    } else if args.status.is_some() {
+    } else if args.status.is_some() || !console::Term::stdout().is_term() {
         let filtered = filter_by_status(&all, args.status.as_deref());
         if filtered.is_empty() {
             println!("No sponsors match the given filters.");

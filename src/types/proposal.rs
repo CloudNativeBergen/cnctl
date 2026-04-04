@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::null_to_vec;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, ValueEnum)]
 #[serde(rename_all = "camelCase")]
 pub enum ProposalStatus {
     Submitted,
@@ -16,6 +16,41 @@ pub enum ProposalStatus {
     Withdrawn,
     Draft,
     Deleted,
+    /// Catch-all for unknown values from the API (future-proofing).
+    #[value(skip)]
+    #[serde(other)]
+    Unknown,
+}
+
+// Custom deserializer: try known variants, fall back to Unknown.
+impl<'de> Deserialize<'de> for ProposalStatus {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        enum Helper {
+            Submitted,
+            Accepted,
+            Confirmed,
+            Waitlisted,
+            Rejected,
+            Withdrawn,
+            Draft,
+            Deleted,
+            #[serde(other)]
+            Unknown,
+        }
+        Ok(match Helper::deserialize(deserializer)? {
+            Helper::Submitted => Self::Submitted,
+            Helper::Accepted => Self::Accepted,
+            Helper::Confirmed => Self::Confirmed,
+            Helper::Waitlisted => Self::Waitlisted,
+            Helper::Rejected => Self::Rejected,
+            Helper::Withdrawn => Self::Withdrawn,
+            Helper::Draft => Self::Draft,
+            Helper::Deleted => Self::Deleted,
+            Helper::Unknown => Self::Unknown,
+        })
+    }
 }
 
 impl fmt::Display for ProposalStatus {
@@ -29,11 +64,12 @@ impl fmt::Display for ProposalStatus {
             Self::Withdrawn => write!(f, "Withdrawn"),
             Self::Draft => write!(f, "Draft"),
             Self::Deleted => write!(f, "Deleted"),
+            Self::Unknown => write!(f, "Unknown"),
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
 pub enum ProposalFormat {
     #[serde(rename = "lightning_10")]
     #[value(name = "lightning_10")]
@@ -56,6 +92,44 @@ pub enum ProposalFormat {
     #[serde(rename = "workshop_240")]
     #[value(name = "workshop_240")]
     Workshop240,
+    /// Catch-all for unknown values from the API.
+    #[value(skip)]
+    #[serde(other)]
+    Unknown,
+}
+
+impl<'de> Deserialize<'de> for ProposalFormat {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        enum Helper {
+            #[serde(rename = "lightning_10")]
+            Lightning10,
+            #[serde(rename = "presentation_20")]
+            Presentation20,
+            #[serde(rename = "presentation_25")]
+            Presentation25,
+            #[serde(rename = "presentation_40")]
+            Presentation40,
+            #[serde(rename = "presentation_45")]
+            Presentation45,
+            #[serde(rename = "workshop_120")]
+            Workshop120,
+            #[serde(rename = "workshop_240")]
+            Workshop240,
+            #[serde(other)]
+            Unknown,
+        }
+        Ok(match Helper::deserialize(deserializer)? {
+            Helper::Lightning10 => Self::Lightning10,
+            Helper::Presentation20 => Self::Presentation20,
+            Helper::Presentation25 => Self::Presentation25,
+            Helper::Presentation40 => Self::Presentation40,
+            Helper::Presentation45 => Self::Presentation45,
+            Helper::Workshop120 => Self::Workshop120,
+            Helper::Workshop240 => Self::Workshop240,
+            Helper::Unknown => Self::Unknown,
+        })
+    }
 }
 
 impl ProposalFormat {
@@ -68,6 +142,7 @@ impl ProposalFormat {
             Self::Presentation45 => "Talk 45min",
             Self::Workshop120 => "Workshop 2h",
             Self::Workshop240 => "Workshop 4h",
+            Self::Unknown => "Unknown format",
         }
     }
 
@@ -80,6 +155,7 @@ impl ProposalFormat {
             Self::Presentation45 => "presentation_45",
             Self::Workshop120 => "workshop_120",
             Self::Workshop240 => "workshop_240",
+            Self::Unknown => "unknown",
         }
     }
 }
@@ -381,5 +457,37 @@ mod tests {
         assert!(p.topics.is_empty());
         assert!(p.reviews.is_empty());
         assert!(p.description.is_empty());
+    }
+
+    #[test]
+    fn unknown_status_deserializes_gracefully() {
+        let json = serde_json::json!({
+            "_id": "talk-future",
+            "title": "Future Talk",
+            "status": "archived",
+            "speakers": [],
+            "topics": [],
+            "reviews": [],
+        });
+
+        let p: Proposal = serde_json::from_value(json).unwrap();
+        assert_eq!(p.status, ProposalStatus::Unknown);
+        assert_eq!(p.status.to_string(), "Unknown");
+    }
+
+    #[test]
+    fn unknown_format_deserializes_gracefully() {
+        let json = serde_json::json!({
+            "_id": "talk-fmt",
+            "title": "New Format",
+            "status": "submitted",
+            "format": "keynote_60",
+            "speakers": [],
+            "topics": [],
+            "reviews": [],
+        });
+
+        let p: Proposal = serde_json::from_value(json).unwrap();
+        assert_eq!(p.format, Some(ProposalFormat::Unknown));
     }
 }

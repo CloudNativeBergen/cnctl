@@ -117,7 +117,7 @@ fn colorize_status(status: SponsorStatus) -> String {
         SponsorStatus::ClosedWon => label.green().to_string(),
         SponsorStatus::Negotiating => label.yellow().to_string(),
         SponsorStatus::Contacted => label.cyan().to_string(),
-        SponsorStatus::Prospect => label.dimmed().to_string(),
+        SponsorStatus::Prospect | SponsorStatus::Unknown => label.dimmed().to_string(),
         SponsorStatus::ClosedLost => label.red().to_string(),
     }
 }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use super::null_to_vec;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum SponsorStatus {
     Prospect,
@@ -13,6 +13,34 @@ pub enum SponsorStatus {
     Negotiating,
     ClosedWon,
     ClosedLost,
+    /// Catch-all for unknown values from the API.
+    #[value(skip)]
+    #[serde(other)]
+    Unknown,
+}
+
+impl<'de> Deserialize<'de> for SponsorStatus {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "kebab-case")]
+        enum Helper {
+            Prospect,
+            Contacted,
+            Negotiating,
+            ClosedWon,
+            ClosedLost,
+            #[serde(other)]
+            Unknown,
+        }
+        Ok(match Helper::deserialize(deserializer)? {
+            Helper::Prospect => Self::Prospect,
+            Helper::Contacted => Self::Contacted,
+            Helper::Negotiating => Self::Negotiating,
+            Helper::ClosedWon => Self::ClosedWon,
+            Helper::ClosedLost => Self::ClosedLost,
+            Helper::Unknown => Self::Unknown,
+        })
+    }
 }
 
 impl fmt::Display for SponsorStatus {
@@ -23,6 +51,7 @@ impl fmt::Display for SponsorStatus {
             Self::Negotiating => write!(f, "negotiating"),
             Self::ClosedWon => write!(f, "closed-won"),
             Self::ClosedLost => write!(f, "closed-lost"),
+            Self::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -213,5 +242,17 @@ mod tests {
         assert_eq!(s.id, "sfc-null");
         assert!(s.contact_persons.is_empty());
         assert!(s.tags.is_empty());
+    }
+
+    #[test]
+    fn unknown_status_deserializes_gracefully() {
+        let json = serde_json::json!({
+            "_id": "sfc-future",
+            "status": "archived",
+        });
+
+        let s: SponsorForConference = serde_json::from_value(json).unwrap();
+        assert_eq!(s.status, SponsorStatus::Unknown);
+        assert_eq!(s.status.to_string(), "unknown");
     }
 }

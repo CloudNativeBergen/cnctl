@@ -44,7 +44,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
     if args.json {
         list_json(&all, &args)
-    } else if args.has_cli_filters() {
+    } else if args.has_cli_filters() || !console::Term::stdout().is_term() {
         list_plain(&all, &args);
         Ok(())
     } else {

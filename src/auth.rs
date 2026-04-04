@@ -62,27 +62,41 @@ pub fn browser_login(api_url: &str) -> Result<AuthResult> {
     open::that(&login_url).context("Failed to open browser")?;
     println!("Waiting for callback on localhost:{port}...");
 
-    let request = server
-        .recv_timeout(std::time::Duration::from_secs(120))
-        .context("Timeout waiting for authentication callback")?
-        .context("No request received")?;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
 
-    let request_url = format!("http://localhost:{}{}", port, request.url());
-    let result = parse_callback(&request_url, &state)?;
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            bail!("Timeout waiting for authentication callback");
+        }
 
-    // Send a simple HTML response to close the browser tab
-    let response = tiny_http::Response::from_string(
-        "<html><body><h1>Authenticated!</h1><p>You can close this tab.</p>\
-         <script>window.close()</script></body></html>",
-    )
-    .with_header(
-        "Content-Type: text/html"
-            .parse::<tiny_http::Header>()
-            .unwrap(),
-    );
-    let _ = request.respond(response);
+        let request = match server.recv_timeout(remaining) {
+            Ok(Some(req)) => req,
+            Ok(None) => bail!("Timeout waiting for authentication callback"),
+            Err(e) => bail!("Server error: {e}"),
+        };
 
-    Ok(result)
+        let request_url = format!("http://localhost:{}{}", port, request.url());
+
+        if let Ok(result) = parse_callback(&request_url, &state) {
+            // Valid callback — send success page
+            let response = tiny_http::Response::from_string(
+                "<html><body><h1>Authenticated!</h1><p>You can close this tab.</p>\
+                 <script>window.close()</script></body></html>",
+            )
+            .with_header(
+                "Content-Type: text/html"
+                    .parse::<tiny_http::Header>()
+                    .unwrap(),
+            );
+            let _ = request.respond(response);
+            return Ok(result);
+        }
+
+        // Not a valid callback (favicon, prefetch, etc.) — respond and retry
+        let response = tiny_http::Response::from_string("").with_status_code(204);
+        let _ = request.respond(response);
+    }
 }
 
 #[cfg(test)]

@@ -1,9 +1,14 @@
+use std::time::Duration;
+
 use anyhow::{Context, Result, bail};
 use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 
 use crate::config::Config;
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 #[derive(Deserialize)]
 struct TrpcResponse<T> {
@@ -32,9 +37,17 @@ pub struct TrpcClient {
 }
 
 impl TrpcClient {
+    fn build_http() -> reqwest::Client {
+        reqwest::Client::builder()
+            .connect_timeout(CONNECT_TIMEOUT)
+            .timeout(REQUEST_TIMEOUT)
+            .build()
+            .expect("failed to build HTTP client")
+    }
+
     pub fn from_config(config: &Config) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: Self::build_http(),
             base_url: config.api_url.clone(),
             token: config.token.clone(),
         }
@@ -42,7 +55,7 @@ impl TrpcClient {
 
     pub fn new(base_url: &str, token: &str) -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: Self::build_http(),
             base_url: base_url.to_string(),
             token: token.to_string(),
         }

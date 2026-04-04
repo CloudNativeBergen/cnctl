@@ -53,23 +53,31 @@ pub fn render_proposal_detail(proposal: &Proposal) -> String {
     }
 
     if !proposal.reviews.is_empty() {
-        writeln!(buf, "\nReviews:").unwrap();
+        writeln!(buf, "\nReviews ({}):", proposal.reviews.len()).unwrap();
         for r in &proposal.reviews {
-            let reviewer = r.reviewer.as_ref().map_or("Anonymous", |r| r.name.as_str());
-            let score = r.score.as_ref().map_or_else(
-                || "-".into(),
-                |s| {
-                    format!(
-                        "{:.0}/15 (content:{:.0} relevance:{:.0} speaker:{:.0})",
-                        s.total(),
-                        s.content,
-                        s.relevance,
-                        s.speaker
-                    )
-                },
-            );
-            let comment = r.comment.as_deref().unwrap_or("");
-            writeln!(buf, "  {reviewer} ({score}): {comment}").unwrap();
+            let reviewer = r
+                .reviewer
+                .as_ref()
+                .map_or("Anonymous", |rev| rev.name.as_str());
+            if let Some(score) = &r.score {
+                writeln!(
+                    buf,
+                    "  {} — Content: {} Relevance: {} Speaker: {} (total: {:.0})",
+                    reviewer,
+                    score.content,
+                    score.relevance,
+                    score.speaker,
+                    score.total()
+                )
+                .unwrap();
+            } else {
+                writeln!(buf, "  {reviewer} — (no score)").unwrap();
+            }
+            if let Some(comment) = &r.comment
+                && !comment.is_empty()
+            {
+                writeln!(buf, "    {}", comment.dimmed()).unwrap();
+            }
         }
     }
 
@@ -89,9 +97,10 @@ fn colorize_status(status: ProposalStatus) -> String {
         ProposalStatus::Confirmed => label.green().bold().to_string(),
         ProposalStatus::Rejected => label.red().to_string(),
         ProposalStatus::Waitlisted => label.cyan().to_string(),
-        ProposalStatus::Withdrawn | ProposalStatus::Draft | ProposalStatus::Deleted => {
-            label.dimmed().to_string()
-        }
+        ProposalStatus::Withdrawn
+        | ProposalStatus::Draft
+        | ProposalStatus::Deleted
+        | ProposalStatus::Unknown => label.dimmed().to_string(),
     }
 }
 
@@ -104,9 +113,10 @@ pub fn pad_and_colorize_status(status: ProposalStatus, width: usize) -> String {
         ProposalStatus::Confirmed => padded.green().bold().to_string(),
         ProposalStatus::Rejected => padded.red().to_string(),
         ProposalStatus::Waitlisted => padded.cyan().to_string(),
-        ProposalStatus::Withdrawn | ProposalStatus::Draft | ProposalStatus::Deleted => {
-            padded.dimmed().to_string()
-        }
+        ProposalStatus::Withdrawn
+        | ProposalStatus::Draft
+        | ProposalStatus::Deleted
+        | ProposalStatus::Unknown => padded.dimmed().to_string(),
     }
 }
 

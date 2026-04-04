@@ -65,25 +65,9 @@ impl Default for Filters {
 
 impl From<&ListArgs> for Filters {
     fn from(args: &ListArgs) -> Self {
-        let statuses = args.status.as_deref().map_or_else(Vec::new, |s| {
-            s.split(',')
-                .filter_map(|v| {
-                    let v = v.trim();
-                    STATUSES.iter().find(|st| st.to_string().eq_ignore_ascii_case(v)).copied()
-                })
-                .collect()
-        });
-        let formats = args.format.as_deref().map_or_else(Vec::new, |s| {
-            s.split(',')
-                .filter_map(|v| {
-                    let v = v.trim();
-                    FORMATS.iter().find(|f| f.api_name().eq_ignore_ascii_case(v)).copied()
-                })
-                .collect()
-        });
         Self {
-            statuses,
-            formats,
+            statuses: args.status.clone().unwrap_or_default(),
+            formats: args.format.clone().unwrap_or_default(),
             sort_by: args.sort,
             sort_asc: args.asc,
         }

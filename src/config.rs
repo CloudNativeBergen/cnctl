@@ -47,25 +47,36 @@ pub fn save_to(config: &Config, path: &Path) -> Result<()> {
     }
     let content = toml::to_string_pretty(config).context("Could not serialize config")?;
 
-    // Write with restricted permissions (0600) to protect the bearer token
-    #[cfg(unix)]
+    // Write atomically: temp file → fsync → rename
+    // This prevents corruption if the process is interrupted mid-write.
+    let dir = path.parent().context("Config path has no parent directory")?;
+    let tmp_path = dir.join(".config.toml.tmp");
+
     {
-        use std::os::unix::fs::OpenOptionsExt;
-        let mut opts = fs::OpenOptions::new();
-        opts.write(true).create(true).truncate(true).mode(0o600);
-        use std::io::Write;
-        let mut file = opts
-            .open(path)
-            .with_context(|| format!("Could not write config to {}", path.display()))?;
-        file.write_all(content.as_bytes())
-            .with_context(|| format!("Could not write config to {}", path.display()))?;
+        #[cfg(unix)]
+        {
+            use std::io::Write;
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut file = fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(&tmp_path)
+                .with_context(|| format!("Could not write config to {}", tmp_path.display()))?;
+            file.write_all(content.as_bytes())
+                .with_context(|| format!("Could not write config to {}", tmp_path.display()))?;
+            file.sync_all()?;
+        }
+        #[cfg(not(unix))]
+        {
+            fs::write(&tmp_path, &content)
+                .with_context(|| format!("Could not write config to {}", tmp_path.display()))?;
+        }
     }
 
-    #[cfg(not(unix))]
-    {
-        fs::write(path, content)
-            .with_context(|| format!("Could not write config to {}", path.display()))?;
-    }
+    fs::rename(&tmp_path, path)
+        .with_context(|| format!("Could not finalize config at {}", path.display()))?;
 
     Ok(())
 }

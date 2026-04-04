@@ -2,6 +2,8 @@ use std::fmt;
 
 use clap::{Args, ValueEnum};
 
+use crate::types::{ProposalFormat, ProposalStatus};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum SortField {
     Created,
@@ -32,12 +34,12 @@ pub struct ListArgs {
     pub json: bool,
 
     /// Filter by status (comma-separated, e.g. submitted,accepted)
-    #[arg(long)]
-    pub status: Option<String>,
+    #[arg(long, value_delimiter = ',', value_enum)]
+    pub status: Option<Vec<ProposalStatus>>,
 
     /// Filter by format (comma-separated, e.g. `presentation_40,lightning_10`)
-    #[arg(long)]
-    pub format: Option<String>,
+    #[arg(long, value_delimiter = ',', value_enum)]
+    pub format: Option<Vec<ProposalFormat>>,
 
     /// Sort by field
     #[arg(long, value_enum, default_value_t = SortField::Created)]
@@ -54,19 +56,22 @@ pub struct ReviewArgs {
     pub id: String,
 
     /// Content score (1–5)
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5),
+          requires_all = ["relevance", "speaker", "comment"])]
     pub content: Option<u8>,
 
     /// Relevance score (1–5)
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5),
+          requires_all = ["content", "speaker", "comment"])]
     pub relevance: Option<u8>,
 
     /// Speaker score (1–5)
-    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5),
+          requires_all = ["content", "relevance", "comment"])]
     pub speaker: Option<u8>,
 
     /// Review comment
-    #[arg(long)]
+    #[arg(long, requires_all = ["content", "relevance", "speaker"])]
     pub comment: Option<String>,
 }
 
