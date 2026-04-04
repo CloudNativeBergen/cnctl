@@ -1,6 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+use super::null_to_vec;
+
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorForConference {
     #[serde(rename = "_id")]
@@ -16,7 +18,7 @@ pub struct SponsorForConference {
     pub tier: Option<TierRef>,
     #[serde(default)]
     pub assigned_to: Option<AssignedTo>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_vec")]
     pub contact_persons: Vec<ContactPerson>,
     #[serde(default)]
     pub billing: Option<Billing>,
@@ -26,7 +28,7 @@ pub struct SponsorForConference {
     pub contract_currency: Option<String>,
     #[serde(default)]
     pub notes: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "null_to_vec")]
     pub tags: Vec<String>,
     #[serde(default)]
     pub contract_signed_at: Option<String>,
@@ -36,7 +38,7 @@ pub struct SponsorForConference {
     pub invoice_paid_at: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorRef {
     #[serde(rename = "_id")]
@@ -46,7 +48,7 @@ pub struct SponsorRef {
     pub website: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TierRef {
     #[serde(rename = "_id")]
@@ -54,7 +56,7 @@ pub struct TierRef {
     pub title: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignedTo {
     #[serde(rename = "_id")]
@@ -62,7 +64,7 @@ pub struct AssignedTo {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactPerson {
     pub name: String,
@@ -76,7 +78,7 @@ pub struct ContactPerson {
     pub is_primary: Option<bool>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Billing {
     #[serde(default)]
@@ -171,5 +173,20 @@ mod tests {
         assert_eq!(c.name, "Bob");
         assert!(c.email.is_none());
         assert!(c.is_primary.is_none());
+    }
+
+    #[test]
+    fn null_vec_fields_deserialize() {
+        let json = serde_json::json!({
+            "_id": "sfc-null",
+            "status": "prospect",
+            "contactPersons": null,
+            "tags": null
+        });
+
+        let s: SponsorForConference = serde_json::from_value(json).unwrap();
+        assert_eq!(s.id, "sfc-null");
+        assert!(s.contact_persons.is_empty());
+        assert!(s.tags.is_empty());
     }
 }

@@ -9,6 +9,8 @@ pub struct Config {
     pub token: String,
     pub conference_id: String,
     pub conference_title: String,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 fn default_path() -> Result<PathBuf> {
@@ -44,8 +46,28 @@ pub fn save_to(config: &Config, path: &Path) -> Result<()> {
             .with_context(|| format!("Could not create config directory {}", dir.display()))?;
     }
     let content = toml::to_string_pretty(config).context("Could not serialize config")?;
-    fs::write(path, content)
-        .with_context(|| format!("Could not write config to {}", path.display()))
+
+    // Write with restricted permissions (0600) to protect the bearer token
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut opts = fs::OpenOptions::new();
+        opts.write(true).create(true).truncate(true).mode(0o600);
+        use std::io::Write;
+        let mut file = opts
+            .open(path)
+            .with_context(|| format!("Could not write config to {}", path.display()))?;
+        file.write_all(content.as_bytes())
+            .with_context(|| format!("Could not write config to {}", path.display()))?;
+    }
+
+    #[cfg(not(unix))]
+    {
+        fs::write(path, content)
+            .with_context(|| format!("Could not write config to {}", path.display()))?;
+    }
+
+    Ok(())
 }
 
 pub fn delete_at(path: &Path) -> Result<bool> {
@@ -68,6 +90,7 @@ mod tests {
             token: "test-token-abc123".to_string(),
             conference_id: "2026.cloudnativedays.no".to_string(),
             conference_title: "2026.cloudnativedays.no".to_string(),
+            name: Some("Alice".to_string()),
         }
     }
 
@@ -162,6 +185,7 @@ mod tests {
             token: "different-token".to_string(),
             conference_id: "other-conf".to_string(),
             conference_title: "Other Conference".to_string(),
+            name: None,
         };
         save_to(&cfg2, &path).unwrap();
 

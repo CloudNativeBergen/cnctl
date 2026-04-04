@@ -1,26 +1,30 @@
+use std::fmt::Write;
+
 use colored::Colorize;
 
-use crate::types::Proposal;
+use crate::types::{portable_text_to_plain, Proposal};
 
-pub fn print_proposal_detail(proposal: &Proposal) {
-    println!("{}", proposal.title.bold());
-    println!("ID:       {}", proposal.id);
-    println!("Status:   {}", colorize_status(&proposal.status));
+/// Render proposal details into a `String` (for scrollable views, etc.).
+pub fn render_proposal_detail(proposal: &Proposal) -> String {
+    let mut buf = String::new();
+    writeln!(buf, "{}", proposal.title.bold()).unwrap();
+    writeln!(buf, "ID:       {}", proposal.id).unwrap();
+    writeln!(buf, "Status:   {}", colorize_status(&proposal.status)).unwrap();
     if let Some(format) = &proposal.format {
-        println!("Format:   {}", humanize_format(format));
+        writeln!(buf, "Format:   {}", humanize_format(format)).unwrap();
     }
     if let Some(level) = &proposal.level {
-        println!("Level:    {}", capitalize(level));
+        writeln!(buf, "Level:    {}", capitalize(level)).unwrap();
     }
     if let Some(language) = &proposal.language {
-        println!("Language: {}", capitalize(language));
+        writeln!(buf, "Language: {}", capitalize(language)).unwrap();
     }
 
     if !proposal.speakers.is_empty() {
-        println!("\nSpeakers:");
+        writeln!(buf, "\nSpeakers:").unwrap();
         for s in &proposal.speakers {
             let email = s.email.as_deref().unwrap_or("");
-            println!("  - {} <{}>", s.name, email);
+            writeln!(buf, "  - {} <{}>", s.name, email).unwrap();
         }
     }
 
@@ -31,25 +35,32 @@ pub fn print_proposal_detail(proposal: &Proposal) {
             .filter_map(|t| t.title.as_deref())
             .collect();
         if !topics.is_empty() {
-            println!("\nTopics: {}", topics.join(", "));
+            writeln!(buf, "\nTopics: {}", topics.join(", ")).unwrap();
+        }
+    }
+
+    if !proposal.description.is_empty() {
+        let desc = portable_text_to_plain(&proposal.description);
+        if !desc.is_empty() {
+            writeln!(buf, "\nDescription:\n{desc}").unwrap();
         }
     }
 
     if let Some(outline) = &proposal.outline
         && !outline.is_empty()
     {
-        println!("\nOutline:\n{outline}");
+        writeln!(buf, "\nOutline:\n{outline}").unwrap();
     }
 
     if !proposal.reviews.is_empty() {
-        println!("\nReviews:");
+        writeln!(buf, "\nReviews:").unwrap();
         for r in &proposal.reviews {
             let reviewer = r.reviewer.as_ref().map_or("Anonymous", |r| r.name.as_str());
             let score = r.score.as_ref().map_or_else(
                 || "-".into(),
                 |s| {
                     format!(
-                        "{:.0}/30 (content:{:.0} relevance:{:.0} speaker:{:.0})",
+                        "{:.0}/15 (content:{:.0} relevance:{:.0} speaker:{:.0})",
                         s.total(),
                         s.content,
                         s.relevance,
@@ -58,9 +69,16 @@ pub fn print_proposal_detail(proposal: &Proposal) {
                 },
             );
             let comment = r.comment.as_deref().unwrap_or("");
-            println!("  {reviewer} ({score}): {comment}");
+            writeln!(buf, "  {reviewer} ({score}): {comment}").unwrap();
         }
     }
+
+    buf
+}
+
+/// Print proposal details to stdout.
+pub fn print_proposal_detail(proposal: &Proposal) {
+    print!("{}", render_proposal_detail(proposal));
 }
 
 fn colorize_status(status: &str) -> String {

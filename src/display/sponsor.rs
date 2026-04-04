@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use colored::Colorize;
 
 use crate::types::SponsorForConference;
@@ -8,61 +10,65 @@ pub fn print_sponsor_list(sponsors: &[SponsorForConference]) {
         return;
     }
 
-    println!(
-        "{:<40} {:<20} {:<14} {:<14} TIER",
-        "ID", "SPONSOR", "STATUS", "CONTRACT"
-    );
-    println!("{}", "─".repeat(100));
+    println!("{SPONSOR_TABLE_HEADER}");
 
     for s in sponsors {
-        let name = s.sponsor.as_ref().map_or("Unknown", |sp| sp.name.as_str());
-        let tier = s.tier.as_ref().map_or("-", |t| t.title.as_str());
-        let contract = s.contract_status.as_deref().unwrap_or("-");
-
-        println!(
-            "{:<40} {:<20} {:<23} {:<14} {}",
-            s.id,
-            truncate(name, 18),
-            colorize_status(&s.status),
-            contract,
-            tier
-        );
+        println!("{}", format_sponsor_row(s));
     }
 
     println!("\n{} sponsors", sponsors.len());
 }
 
-pub fn print_sponsor_detail(sponsor: &SponsorForConference) {
+pub const SPONSOR_TABLE_HEADER: &str =
+    "SPONSOR              STATUS         CONTRACT       TIER";
+
+pub fn format_sponsor_row(s: &SponsorForConference) -> String {
+    let name = s.sponsor.as_ref().map_or("Unknown", |sp| sp.name.as_str());
+    let tier = s.tier.as_ref().map_or("-", |t| t.title.as_str());
+    let contract = s.contract_status.as_deref().unwrap_or("-");
+
+    format!(
+        "{:<20} {:<23} {:<14} {}",
+        truncate(name, 18),
+        colorize_status(&s.status),
+        contract,
+        tier
+    )
+}
+
+/// Render sponsor details into a `String` (for scrollable views, etc.).
+pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
+    let mut buf = String::new();
     let name = sponsor
         .sponsor
         .as_ref()
         .map_or("Unknown", |s| s.name.as_str());
 
-    println!("{}", name.bold());
-    println!("ID:              {}", sponsor.id);
-    println!("Status:          {}", colorize_status(&sponsor.status));
+    writeln!(buf, "{}", name.bold()).unwrap();
+    writeln!(buf, "ID:              {}", sponsor.id).unwrap();
+    writeln!(buf, "Status:          {}", colorize_status(&sponsor.status)).unwrap();
     if let Some(contract) = &sponsor.contract_status {
-        println!("Contract:        {contract}");
+        writeln!(buf, "Contract:        {contract}").unwrap();
     }
     if let Some(invoice) = &sponsor.invoice_status {
-        println!("Invoice:         {invoice}");
+        writeln!(buf, "Invoice:         {invoice}").unwrap();
     }
     if let Some(tier) = &sponsor.tier {
-        println!("Tier:            {}", tier.title);
+        writeln!(buf, "Tier:            {}", tier.title).unwrap();
     }
     if let Some(assigned) = &sponsor.assigned_to {
-        println!("Assigned to:     {}", assigned.name);
+        writeln!(buf, "Assigned to:     {}", assigned.name).unwrap();
     }
     if let Some(value) = sponsor.contract_value {
         let currency = sponsor.contract_currency.as_deref().unwrap_or("NOK");
-        println!("Contract value:  {value} {currency}");
+        writeln!(buf, "Contract value:  {value} {currency}").unwrap();
     }
     if let Some(website) = sponsor.sponsor.as_ref().and_then(|s| s.website.as_deref()) {
-        println!("Website:         {website}");
+        writeln!(buf, "Website:         {website}").unwrap();
     }
 
     if !sponsor.contact_persons.is_empty() {
-        println!("\nContacts:");
+        writeln!(buf, "\nContacts:").unwrap();
         for c in &sponsor.contact_persons {
             let role = c.role.as_deref().unwrap_or("");
             let email = c.email.as_deref().unwrap_or("");
@@ -71,31 +77,38 @@ pub fn print_sponsor_detail(sponsor: &SponsorForConference) {
             } else {
                 ""
             };
-            println!("  - {} <{}> {}{}", c.name, email, role, primary);
+            writeln!(buf, "  - {} <{}> {}{}", c.name, email, role, primary).unwrap();
         }
     }
 
     if let Some(billing) = &sponsor.billing
         && (billing.email.is_some() || billing.reference.is_some())
     {
-        println!("\nBilling:");
+        writeln!(buf, "\nBilling:").unwrap();
         if let Some(email) = &billing.email {
-            println!("  Email:     {email}");
+            writeln!(buf, "  Email:     {email}").unwrap();
         }
         if let Some(reference) = &billing.reference {
-            println!("  Reference: {reference}");
+            writeln!(buf, "  Reference: {reference}").unwrap();
         }
     }
 
     if let Some(notes) = &sponsor.notes
         && !notes.is_empty()
     {
-        println!("\nNotes:\n{notes}");
+        writeln!(buf, "\nNotes:\n{notes}").unwrap();
     }
 
     if !sponsor.tags.is_empty() {
-        println!("\nTags: {}", sponsor.tags.join(", "));
+        writeln!(buf, "\nTags: {}", sponsor.tags.join(", ")).unwrap();
     }
+
+    buf
+}
+
+/// Print sponsor details to stdout.
+pub fn print_sponsor_detail(sponsor: &SponsorForConference) {
+    print!("{}", render_sponsor_detail(sponsor));
 }
 
 fn colorize_status(status: &str) -> String {
@@ -110,9 +123,5 @@ fn colorize_status(status: &str) -> String {
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    if s.len() > max {
-        format!("{}…", &s[..max - 1])
-    } else {
-        s.to_string()
-    }
+    crate::ui::truncate(s, max)
 }

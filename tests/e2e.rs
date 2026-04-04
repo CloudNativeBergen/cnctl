@@ -189,8 +189,8 @@ async fn sponsors_list_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = sponsors::list_with(&client).await;
-    assert!(result.is_ok(), "list_with failed: {result:?}");
+    let result = sponsors::fetch_all(&client).await;
+    assert!(result.is_ok(), "fetch_all failed: {result:?}");
 }
 
 #[tokio::test]
@@ -206,7 +206,7 @@ async fn sponsors_list_empty_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = sponsors::list_with(&client).await;
+    let result = sponsors::fetch_all(&client).await;
     assert!(result.is_ok());
 }
 
@@ -221,8 +221,10 @@ async fn sponsors_get_existing_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = sponsors::get_with(&client, "sfc-111").await;
-    assert!(result.is_ok(), "get_with failed: {result:?}");
+    let sponsors = sponsors::fetch_all(&client).await;
+    assert!(sponsors.is_ok(), "fetch_all failed: {sponsors:?}");
+    let found = sponsors.unwrap().iter().any(|s| s.id == "sfc-111");
+    assert!(found, "Expected to find sfc-111");
 }
 
 #[tokio::test]
@@ -236,12 +238,81 @@ async fn sponsors_get_not_found_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = sponsors::get_with(&client, "nonexistent").await;
+    let sponsors = sponsors::fetch_all(&client).await.unwrap();
+    let found = sponsors.iter().any(|s| s.id == "nonexistent");
+    assert!(!found, "Should not find nonexistent sponsor");
+}
+
+// ─── Review e2e tests ────────────────────────────────────────────────────────
+
+fn review_response_json() -> serde_json::Value {
+    serde_json::json!({
+        "result": {
+            "data": {
+                "_id": "review-123",
+                "_rev": "abc",
+                "_createdAt": "2026-04-04T20:00:00Z",
+                "_updatedAt": "2026-04-04T20:00:00Z",
+                "score": {"content": 4, "relevance": 3, "speaker": 5},
+                "comment": "Excellent proposal"
+            }
+        }
+    })
+}
+
+#[tokio::test]
+async fn submit_review_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/proposal.admin.submitReview"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(review_response_json()))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "test-token");
+    let input = cnctl::types::ReviewInput {
+        id: "talk-abc".to_string(),
+        comment: "Excellent proposal".to_string(),
+        score: cnctl::types::ReviewScore {
+            content: 4.0,
+            relevance: 3.0,
+            speaker: 5.0,
+        },
+    };
+    let result = proposals::submit_review(&client, &input).await;
+    assert!(result.is_ok(), "submit_review failed: {result:?}");
+}
+
+#[tokio::test]
+async fn submit_review_unauthorized_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/proposal.admin.submitReview"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({
+            "error": {"message": "UNAUTHORIZED"}
+        })))
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "bad-token");
+    let input = cnctl::types::ReviewInput {
+        id: "talk-abc".to_string(),
+        comment: "Test".to_string(),
+        score: cnctl::types::ReviewScore {
+            content: 3.0,
+            relevance: 3.0,
+            speaker: 3.0,
+        },
+    };
+    let result = proposals::submit_review(&client, &input).await;
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(
-        err.contains("Sponsor not found"),
-        "Expected not-found error, got: {err}"
+        err.contains("UNAUTHORIZED"),
+        "Expected UNAUTHORIZED, got: {err}"
     );
 }
 
@@ -257,6 +328,7 @@ fn config_roundtrip_e2e() {
         token: "jwt-xyz".to_string(),
         conference_id: "conf-2026".to_string(),
         conference_title: "2026.cloudnativedays.no".to_string(),
+        name: None,
     };
 
     // Save → load → verify roundtrip
@@ -295,6 +367,7 @@ async fn full_pipeline_proposals_e2e() {
         token: "test-jwt".to_string(),
         conference_id: "conf-2026".to_string(),
         conference_title: "Cloud Native Days 2026".to_string(),
+        name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
 
@@ -328,13 +401,14 @@ async fn full_pipeline_sponsors_e2e() {
         token: "test-jwt".to_string(),
         conference_id: "conf-2026".to_string(),
         conference_title: "Cloud Native Days 2026".to_string(),
+        name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
 
     // Load and run
     let loaded = config::load_from(&config_path).unwrap();
     let client = TrpcClient::from_config(&loaded);
-    let result = sponsors::list_with(&client).await;
+    let result = sponsors::fetch_all(&client).await;
     assert!(result.is_ok(), "Full pipeline failed: {result:?}");
 }
 

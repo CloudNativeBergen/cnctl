@@ -1,3 +1,7 @@
+pub mod pager;
+
+pub use pager::Pager;
+
 use indicatif::{ProgressBar, ProgressStyle};
 use terminal_size::{Width, terminal_size};
 

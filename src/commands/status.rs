@@ -9,6 +9,9 @@ pub fn run() -> Result<()> {
     }
 
     let cfg = config::load()?;
+    if let Some(name) = &cfg.name {
+        println!("Logged in:  {name}");
+    }
     println!("Conference: {}", cfg.conference_title);
     println!("API URL:    {}", cfg.api_url);
     Ok(())

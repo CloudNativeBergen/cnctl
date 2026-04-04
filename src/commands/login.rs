@@ -43,6 +43,7 @@ pub fn run() -> Result<()> {
         token: result.token,
         conference_id: result.conference_id.unwrap_or_default(),
         conference_title: title.to_string(),
+        name: result.name.clone(),
     };
     config::save(&cfg)?;
 

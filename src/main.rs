@@ -45,12 +45,14 @@ enum ProposalCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Submit or update a review for a proposal
+    Review(commands::proposals::ReviewArgs),
 }
 
 #[derive(Subcommand)]
 enum SponsorCommand {
-    /// List sponsor pipeline
-    List,
+    /// List sponsor pipeline (interactive by default, or use flags for scripting)
+    List(commands::sponsors::ListArgs),
     /// Show sponsor details
     Get {
         /// Sponsor-for-conference ID
@@ -70,9 +72,10 @@ async fn main() -> Result<()> {
             AdminCommand::Proposals(cmd) => match cmd {
                 ProposalCommand::List(args) => commands::proposals::list(args).await,
                 ProposalCommand::Get { id, json } => commands::proposals::get(&id, json).await,
+                ProposalCommand::Review(args) => commands::proposals::review(args).await,
             },
             AdminCommand::Sponsors(cmd) => match cmd {
-                SponsorCommand::List => commands::sponsors::list().await,
+                SponsorCommand::List(args) => commands::sponsors::list(args).await,
                 SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
             },
         },

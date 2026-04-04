@@ -2,13 +2,13 @@ use anyhow::Result;
 use clap::Args;
 use colored::Colorize;
 use console::{Key, Term};
-use dialoguer::{FuzzySelect, MultiSelect, Select};
+use dialoguer::{Confirm, FuzzySelect, Input, MultiSelect, Select};
 
 use super::require_client;
 use crate::client::TrpcClient;
 use crate::display;
-use crate::types::{Proposal, ReviewScore};
-use crate::ui;
+use crate::types::{Proposal, ReviewInput, ReviewScore};
+use crate::{config, ui};
 
 // ---------------------------------------------------------------------------
 // CLI argument types (clap::Args — used directly from main.rs)
@@ -35,6 +35,28 @@ pub struct ListArgs {
     /// Sort ascending instead of descending
     #[arg(long)]
     pub asc: bool,
+}
+
+#[derive(Args)]
+pub struct ReviewArgs {
+    /// Proposal ID
+    pub id: String,
+
+    /// Content score (1–5)
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
+    pub content: Option<u8>,
+
+    /// Relevance score (1–5)
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
+    pub relevance: Option<u8>,
+
+    /// Speaker score (1–5)
+    #[arg(long, value_parser = clap::value_parser!(u8).range(1..=5))]
+    pub speaker: Option<u8>,
+
+    /// Review comment
+    #[arg(long)]
+    pub comment: Option<String>,
 }
 
 impl ListArgs {
@@ -162,8 +184,9 @@ fn avg_rating(p: &Proposal) -> f64 {
         .count()
         .max(1);
     #[allow(clippy::cast_precision_loss)]
-    let result = total / count as f64;
-    result
+    {
+        total / count as f64
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -325,6 +348,12 @@ pub async fn fetch_one(client: &TrpcClient, id: &str) -> Result<Proposal> {
     client.query("proposal.admin.getById", Some(&input)).await
 }
 
+pub async fn submit_review(client: &TrpcClient, input: &ReviewInput) -> Result<serde_json::Value> {
+    client
+        .mutate("proposal.admin.submitReview", &serde_json::to_value(input)?)
+        .await
+}
+
 // ---------------------------------------------------------------------------
 // Command entry points
 // ---------------------------------------------------------------------------
@@ -359,6 +388,151 @@ pub async fn get(id: &str, json: bool) -> Result<()> {
         display::print_proposal_detail(&proposal);
     }
     Ok(())
+}
+
+pub async fn review(args: ReviewArgs) -> Result<()> {
+    let client = require_client()?;
+    let reviewer_name = config::load().ok().and_then(|c| c.name);
+
+    let sp = ui::spinner("Fetching proposal…");
+    let proposal = fetch_one(&client, &args.id).await?;
+    sp.finish_and_clear();
+
+    display::print_proposal_detail(&proposal);
+    println!();
+
+    // If all scores and comment are provided, submit non-interactively
+    if let (Some(content), Some(relevance), Some(speaker), Some(comment)) =
+        (args.content, args.relevance, args.speaker, args.comment)
+    {
+        let input = ReviewInput {
+            id: args.id,
+            comment,
+            score: ReviewScore {
+                content: f64::from(content),
+                relevance: f64::from(relevance),
+                speaker: f64::from(speaker),
+            },
+        };
+
+        let sp = ui::spinner("Submitting review…");
+        submit_review(&client, &input).await?;
+        sp.finish_and_clear();
+
+        println!("Review submitted ({:.0}/15)", input.score.total());
+    } else {
+        prompt_and_submit_review(&client, &proposal, reviewer_name.as_deref()).await?;
+    }
+
+    Ok(())
+}
+
+async fn prompt_and_submit_review(
+    client: &TrpcClient,
+    proposal: &Proposal,
+    reviewer_name: Option<&str>,
+) -> Result<()> {
+    // Find the user's existing review to pre-fill defaults
+    let existing = reviewer_name.and_then(|name| {
+        proposal.reviews.iter().find(|r| {
+            r.reviewer
+                .as_ref()
+                .is_some_and(|rev| rev.name.eq_ignore_ascii_case(name))
+        })
+    });
+
+    if existing.is_some() {
+        println!("{}", "Updating your existing review.".dimmed());
+    }
+
+    let prev_score = existing.and_then(|r| r.score.as_ref());
+    let prev_comment = existing.and_then(|r| r.comment.as_deref()).unwrap_or("");
+
+    // Prompt scores (Esc to cancel at any step)
+    let Some(content) = prompt_score("Content", score_default(prev_score, |s| s.content))? else {
+        println!("{}", "Review cancelled.".dimmed());
+        return Ok(());
+    };
+    let Some(relevance) = prompt_score("Relevance", score_default(prev_score, |s| s.relevance))?
+    else {
+        println!("{}", "Review cancelled.".dimmed());
+        return Ok(());
+    };
+    let Some(speaker) = prompt_score("Speaker", score_default(prev_score, |s| s.speaker))? else {
+        println!("{}", "Review cancelled.".dimmed());
+        return Ok(());
+    };
+
+    let comment: String = Input::new()
+        .with_prompt("Comment")
+        .with_initial_text(prev_comment)
+        .allow_empty(true)
+        .interact_text()?;
+
+    // Show summary and confirm
+    let total = f64::from(content) + f64::from(relevance) + f64::from(speaker);
+    println!(
+        "\n  Content: {content}  Relevance: {relevance}  Speaker: {speaker}  Total: {total:.0}/15"
+    );
+    if !comment.is_empty() {
+        println!("  Comment: {comment}");
+    }
+
+    if !Confirm::new()
+        .with_prompt("Submit review?")
+        .default(true)
+        .interact()?
+    {
+        println!("{}", "Review cancelled.".dimmed());
+        return Ok(());
+    }
+
+    let input = ReviewInput {
+        id: proposal.id.clone(),
+        comment,
+        score: ReviewScore {
+            content: f64::from(content),
+            relevance: f64::from(relevance),
+            speaker: f64::from(speaker),
+        },
+    };
+
+    let sp = ui::spinner("Submitting review…");
+    submit_review(client, &input).await?;
+    sp.finish_and_clear();
+
+    println!(
+        "{} Review submitted ({:.0}/15)",
+        "✔".green().bold(),
+        input.score.total()
+    );
+    Ok(())
+}
+
+fn score_default(prev: Option<&ReviewScore>, f: impl Fn(&ReviewScore) -> f64) -> usize {
+    prev.map_or(2, |s| {
+        #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+        let v = f(s) as usize;
+        v.saturating_sub(1).min(4)
+    })
+}
+
+const SCORE_LABELS: &[&str] = &[
+    "1 - Poor",
+    "2 - Fair",
+    "3 - Good",
+    "4 - Very good",
+    "5 - Excellent",
+];
+
+fn prompt_score(category: &str, default: usize) -> Result<Option<u8>> {
+    let selection = Select::new()
+        .with_prompt(format!("{category} (1–5, esc to cancel)"))
+        .items(SCORE_LABELS)
+        .default(default)
+        .interact_opt()?;
+    #[allow(clippy::cast_possible_truncation)]
+    Ok(selection.map(|idx| (idx + 1) as u8))
 }
 
 // ---------------------------------------------------------------------------
@@ -450,47 +624,84 @@ async fn show_detail_loop(
     proposal_ids: &[&str],
     start: usize,
 ) -> Result<usize> {
-    let term = Term::stderr();
+    let reviewer_name = config::load().ok().and_then(|c| c.name);
     let mut idx = start;
     let total = proposal_ids.len();
 
     loop {
-        term.clear_screen()?;
-        println!("{}", format!("[{}/{}]", idx + 1, total).dimmed());
-
         let sp = ui::spinner("Loading…");
         let proposal = fetch_one(client, proposal_ids[idx]).await?;
         sp.finish_and_clear();
 
-        display::print_proposal_detail(&proposal);
+        let content = display::render_proposal_detail(&proposal);
 
-        let mut nav_parts = vec![];
+        // Build nav hints — scroll hints added dynamically by the pager
+        let mut nav = vec![];
         if idx > 0 {
-            nav_parts.push("← prev");
+            nav.push("← prev");
         }
         if idx + 1 < total {
-            nav_parts.push("→ next");
+            nav.push("→ next");
         }
-        nav_parts.push("any other key to go back");
-        println!("\n{}", nav_parts.join(" · ").dimmed());
+        // Use the longest possible hint string for viewport sizing
+        let mut nav_full = nav.clone();
+        nav_full.extend(["↑↓/jk scroll", "^u/^d half-page", "r review", "q/esc back"]);
+        let footer_measure = nav_full.join(" · ");
 
-        match term.read_key()? {
-            Key::ArrowLeft | Key::Char('h' | 'k') => {
-                idx = idx.saturating_sub(1);
-            }
-            Key::ArrowRight | Key::Char('l' | 'j') => {
-                if idx + 1 < total {
-                    idx += 1;
-                }
-            }
-            _ => {
-                term.clear_screen()?;
-                break;
+        let mut pager = ui::Pager::new(&content, &footer_measure);
+
+        // Build the actual footer shown to the user
+        if pager.is_scrollable() {
+            nav.push("↑↓/jk scroll");
+            nav.push("^u/^d half-page");
+        }
+        nav.push("r review");
+        nav.push("q/esc back");
+        let footer = nav.join(" · ").dimmed().to_string();
+
+        loop {
+            let header = if pager.is_scrollable() {
+                format!(
+                    "[{}/{}] ↕ {}/{}",
+                    idx + 1,
+                    total,
+                    pager.scroll_offset() + 1,
+                    pager.line_count()
+                )
+            } else {
+                format!("[{}/{}]", idx + 1, total)
+            };
+
+            pager.render(&header.dimmed().to_string(), &footer)?;
+
+            match pager.handle_key()? {
+                ui::pager::Action::Redraw => {}
+                ui::pager::Action::Custom(key) => match key {
+                    Key::ArrowLeft | Key::Char('h') => {
+                        idx = idx.saturating_sub(1);
+                        break;
+                    }
+                    Key::ArrowRight | Key::Char('l') => {
+                        if idx + 1 < total {
+                            idx += 1;
+                        }
+                        break;
+                    }
+                    Key::Char('r') => {
+                        println!();
+                        prompt_and_submit_review(client, &proposal, reviewer_name.as_deref())
+                            .await?;
+                        break;
+                    }
+                    Key::Escape | Key::Char('q') => {
+                        pager.clear()?;
+                        return Ok(idx);
+                    }
+                    _ => {}
+                },
             }
         }
     }
-
-    Ok(idx)
 }
 
 // ---------------------------------------------------------------------------

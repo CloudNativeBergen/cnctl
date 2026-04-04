@@ -116,10 +116,11 @@ impl TrpcClient {
 }
 
 fn truncate_body(body: &str, max: usize) -> String {
-    if body.len() <= max {
+    if body.chars().count() <= max {
         body.to_string()
     } else {
-        format!("{}…", &body[..max])
+        let truncated: String = body.chars().take(max).collect();
+        format!("{truncated}…")
     }
 }
 
