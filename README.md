@@ -9,7 +9,7 @@ The organizer CLI for [Cloud Native Days Norway](https://cloudnativedays.no). Re
 ## ✨ Features
 
 - 🔐 **Browser-based login** — authenticate with GitHub or LinkedIn OAuth, no API keys to manage
-- 📋 **Interactive proposal review** — fuzzy-search, filter by status/format, sort by rating, and navigate with arrow keys or vim bindings
+- 📋 **Interactive proposal review** — fuzzy-search, filter by status/format, sort by rating, and scroll through details with vim-style keybindings
 - 💰 **Sponsor pipeline** — track sponsors from prospect to paid, with contacts, tiers, and contract status
 - 🎨 **Color-coded output** — status badges at a glance (green = confirmed, yellow = submitted, red = rejected, …)
 - 📊 **JSON output** — pipe to `jq` or feed into scripts with `--json`
@@ -83,6 +83,9 @@ cnctl admin proposals list                 # interactive fuzzy-search
 cnctl admin proposals list --status accepted,confirmed --sort rating
 cnctl admin proposals list --json | jq '.[] | .title'
 
+cnctl admin proposals review <id>   # interactive review prompts
+cnctl admin proposals review <id> --content 4 --relevance 3 --speaker 5 --comment "Great talk"
+
 cnctl admin sponsors list
 cnctl admin sponsors get <id>
 
@@ -144,11 +147,24 @@ cnctl admin proposals list --sort speaker --asc
 | `--format` | `lightning_10`, `presentation_20`, `presentation_25`, `presentation_40`, `presentation_45`, `workshop_120`, `workshop_240` |
 | `--sort` | `created`, `title`, `speaker`, `rating`, `reviews`, `status` |
 
-**View a single proposal** with full details — speakers, topics, outline, and review scores:
+**View a single proposal** with full details — speakers, topics, description, outline, and review scores:
 
 ```sh
 cnctl admin proposals get <proposal-id>
 ```
+
+In **interactive mode**, selecting a proposal opens a scrollable detail view:
+
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Scroll up |
+| `↓` / `j` | Scroll down |
+| `Ctrl+U` / `PgUp` | Half-page up |
+| `Ctrl+D` / `PgDn` | Half-page down |
+| `←` / `h` | Previous proposal |
+| `→` / `l` | Next proposal |
+| `r` | Start a review |
+| `q` / `Esc` | Back to list |
 
 **JSON output** for scripting and automation:
 
@@ -156,6 +172,24 @@ cnctl admin proposals get <proposal-id>
 cnctl admin proposals list --json
 cnctl admin proposals get <proposal-id> --json
 ```
+
+### Reviews
+
+**Interactive review** — shows the proposal, then prompts for scores (1–5) and a comment:
+
+```sh
+cnctl admin proposals review <proposal-id>
+```
+
+**Non-interactive** — provide all scores and comment as flags:
+
+```sh
+cnctl admin proposals review <proposal-id> \
+  --content 4 --relevance 3 --speaker 5 \
+  --comment "Clear structure, relevant topic, confident speaker"
+```
+
+If the proposal has already been reviewed by you, your previous scores and comment are pre-filled as defaults. You can press `Esc` at any prompt to cancel, and a confirmation summary is shown before submitting.
 
 ### Sponsors
 
