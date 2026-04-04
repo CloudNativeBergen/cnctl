@@ -1,14 +1,25 @@
 # cnctl
 
-CLI for [Cloud Native Days Norway](https://cloudnativedays.no) conference organizers.
+[![CI](https://github.com/CloudNativeBergen/cnctl/actions/workflows/ci.yml/badge.svg)](https://github.com/CloudNativeBergen/cnctl/actions/workflows/ci.yml)
+[![Release](https://github.com/CloudNativeBergen/cnctl/actions/workflows/release.yml/badge.svg)](https://github.com/CloudNativeBergen/cnctl/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Manage talk proposals and sponsor pipelines from the terminal.
+The organizer CLI for [Cloud Native Days Norway](https://cloudnativedays.no). Review talk proposals, manage the sponsor pipeline, and run your conference — all from the terminal.
 
-## Installation
+## ✨ Features
 
-### From releases
+- 🔐 **Browser-based login** — authenticate with GitHub or LinkedIn OAuth, no API keys to manage
+- 📋 **Interactive proposal review** — fuzzy-search, filter by status/format, sort by rating, and navigate with arrow keys or vim bindings
+- 💰 **Sponsor pipeline** — track sponsors from prospect to paid, with contacts, tiers, and contract status
+- 🎨 **Color-coded output** — status badges at a glance (green = confirmed, yellow = submitted, red = rejected, …)
+- 📊 **JSON output** — pipe to `jq` or feed into scripts with `--json`
+- 🖥️ **Cross-platform** — prebuilt binaries for macOS, Linux, and Windows
 
-Download the latest binary for your platform from [GitHub Releases](https://github.com/CloudNativeBergen/cnctl/releases):
+## 📦 Installation
+
+### Download a prebuilt binary
+
+Grab the latest build for your platform from [GitHub Releases](https://github.com/CloudNativeBergen/cnctl/releases/latest):
 
 ```sh
 # macOS (Apple Silicon)
@@ -32,28 +43,53 @@ tar xzf cnctl-aarch64-unknown-linux-gnu.tar.gz
 sudo mv cnctl /usr/local/bin/
 ```
 
-Verify the checksum:
+<details>
+<summary>🔒 Verify your download</summary>
+
+**Checksum:**
 
 ```sh
 curl -LO https://github.com/CloudNativeBergen/cnctl/releases/latest/download/SHA256SUMS
 sha256sum -c SHA256SUMS --ignore-missing
 ```
 
-Verify build provenance (requires [GitHub CLI](https://cli.github.com/)):
+**Build provenance** (requires [GitHub CLI](https://cli.github.com/)):
 
 ```sh
 gh attestation verify cnctl-aarch64-apple-darwin.tar.gz --repo CloudNativeBergen/cnctl
 ```
 
-### From source
+Every release is signed with [Sigstore](https://www.sigstore.dev/) via GitHub Artifact Attestations so you can verify exactly which commit and workflow produced your binary.
+
+</details>
+
+### Build from source
 
 Requires [Rust 1.85+](https://rustup.rs/).
 
 ```sh
+git clone https://github.com/CloudNativeBergen/cnctl.git
+cd cnctl
 cargo install --path .
 ```
 
-## Usage
+## 🚀 Quick start
+
+```sh
+cnctl login          # opens browser → pick your conference
+cnctl status         # verify session
+
+cnctl admin proposals list                 # interactive fuzzy-search
+cnctl admin proposals list --status accepted,confirmed --sort rating
+cnctl admin proposals list --json | jq '.[] | .title'
+
+cnctl admin sponsors list
+cnctl admin sponsors get <id>
+
+cnctl logout         # clear credentials
+```
+
+## 📖 Usage
 
 ### Authentication
 
@@ -63,7 +99,9 @@ Log in via your browser using GitHub or LinkedIn OAuth:
 cnctl login
 ```
 
-This opens a browser window, authenticates you, and stores a session token locally at `~/.config/cnctl/config.toml`. You must be registered as a conference organizer.
+This opens a browser window, authenticates you, and lets you select which conference to work with. Your session token is stored locally at `~/.config/cnctl/config.toml`.
+
+> You must be registered as a conference organizer to use the admin commands.
 
 Check your current session:
 
@@ -71,7 +109,7 @@ Check your current session:
 cnctl status
 ```
 
-Log out (removes stored credentials):
+Log out and remove stored credentials:
 
 ```sh
 cnctl logout
@@ -79,33 +117,61 @@ cnctl logout
 
 ### Proposals
 
-List all talk proposals for the current conference:
+**Interactive mode** (default) — launches a fuzzy-search menu where you can type to filter, use arrow keys to navigate, and press enter to view details:
 
 ```sh
 cnctl admin proposals list
 ```
 
-View details for a specific proposal:
+**Filter and sort** directly from the command line:
+
+```sh
+# Only accepted talks, sorted by review rating (highest first)
+cnctl admin proposals list --status accepted --sort rating
+
+# Lightning talks that are still pending review
+cnctl admin proposals list --status submitted --format lightning_10
+
+# Sort alphabetically by speaker name, ascending
+cnctl admin proposals list --sort speaker --asc
+```
+
+**Available filters:**
+
+| Flag | Values |
+|------|--------|
+| `--status` | `submitted`, `accepted`, `confirmed`, `waitlisted`, `rejected`, `withdrawn`, `draft` |
+| `--format` | `lightning_10`, `presentation_20`, `presentation_25`, `presentation_40`, `presentation_45`, `workshop_120`, `workshop_240` |
+| `--sort` | `created`, `title`, `speaker`, `rating`, `reviews`, `status` |
+
+**View a single proposal** with full details — speakers, topics, outline, and review scores:
 
 ```sh
 cnctl admin proposals get <proposal-id>
 ```
 
+**JSON output** for scripting and automation:
+
+```sh
+cnctl admin proposals list --json
+cnctl admin proposals get <proposal-id> --json
+```
+
 ### Sponsors
 
-List the sponsor pipeline:
+View the full sponsor pipeline with status, tier, and contract info:
 
 ```sh
 cnctl admin sponsors list
 ```
 
-View sponsor details:
+Dive into a specific sponsor for contacts, billing details, and notes:
 
 ```sh
 cnctl admin sponsors get <sponsor-id>
 ```
 
-## Development
+## 🛠️ Development
 
 ### Prerequisites
 
@@ -129,27 +195,22 @@ cargo test
 
 ```text
 src/
+  main.rs         — CLI entry point and argument parsing (clap)
   lib.rs          — public module exports
-  main.rs         — CLI argument parsing (clap)
-  auth.rs         — browser-based OAuth login flow
+  auth.rs         — browser-based OAuth flow with local callback server
   client.rs       — tRPC HTTP client
-  config.rs       — config file read/write (~/.config/cnctl/)
-  display/        — terminal output formatting
-    proposal.rs   — proposal list/detail rendering
-    sponsor.rs    — sponsor list/detail rendering
-  types/          — API response types (serde)
-    proposal.rs   — proposal domain types
-    sponsor.rs    — sponsor domain types
+  config.rs       — TOML config read/write (~/.config/cnctl/)
   commands/       — command orchestration
-    login.rs      — login flow
-    logout.rs     — credential cleanup
-    status.rs     — session info
-    proposals.rs  — proposal fetch + display
-    sponsors.rs   — sponsor fetch + display
+  display/        — terminal output formatting (colors, layout, truncation)
+  types/          — API response types (serde)
 tests/
-  e2e.rs          — end-to-end integration tests (wiremock)
+  e2e.rs          — end-to-end tests with wiremock
 ```
 
-## License
+## 🤝 Contributing
 
-[MIT](LICENSE)
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+## 📄 License
+
+[MIT](LICENSE) © Hans Kristian Flaatten
