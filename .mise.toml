@@ -1,0 +1,34 @@
+[tools]
+rust = "1.94"
+
+[tasks.build]
+description = "Build the CLI in release mode"
+run = "cargo build --release"
+
+[tasks.check]
+description = "Run all checks (clippy, fmt, test)"
+depends = ["clippy", "fmt-check", "test"]
+
+[tasks.clippy]
+description = "Run clippy lints"
+run = "cargo clippy --all-targets -- -D warnings"
+
+[tasks.fmt]
+description = "Format code with rustfmt"
+run = "cargo fmt"
+
+[tasks.fmt-check]
+description = "Check formatting without modifying files"
+run = "cargo fmt -- --check"
+
+[tasks.test]
+description = "Run all tests"
+run = "cargo test"
+
+[tasks.test-verbose]
+description = "Run tests with verbose output"
+run = "cargo test -- --nocapture"
+
+[tasks.clean]
+description = "Remove build artifacts"
+run = "cargo clean"
