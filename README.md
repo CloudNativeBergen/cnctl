@@ -39,6 +39,12 @@ curl -LO https://github.com/CloudNativeBergen/cnctl/releases/latest/download/SHA
 sha256sum -c SHA256SUMS --ignore-missing
 ```
 
+Verify build provenance (requires [GitHub CLI](https://cli.github.com/)):
+
+```sh
+gh attestation verify cnctl-aarch64-apple-darwin.tar.gz --repo CloudNativeBergen/cnctl
+```
+
 ### From source
 
 Requires [Rust 1.85+](https://rustup.rs/).
