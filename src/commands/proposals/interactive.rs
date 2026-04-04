@@ -37,6 +37,9 @@ pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -
 
         let default = (cursor + 1).min(items.len() - 1);
 
+        // Cap list height so the header/prompt stays visible, accounting for wrapping
+        let max_rows = ui::max_visible_items(&items, 4);
+
         let selection = FuzzySelect::new()
             .with_prompt(format!(
                 "{}/{} proposals\n  {TABLE_HEADER}\n  {hints}",
@@ -45,6 +48,7 @@ pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -
             ))
             .items(&items)
             .default(default)
+            .max_length(max_rows)
             .highlight_matches(false)
             .interact_opt()?;
 

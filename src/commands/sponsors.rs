@@ -93,6 +93,9 @@ fn list_interactive(
 
         let default = cursor.min(items.len().saturating_sub(1));
 
+        // Cap list height so the header/prompt stays visible, accounting for wrapping
+        let max_rows = ui::max_visible_items(&items, 4);
+
         let selection = FuzzySelect::new()
             .with_prompt(format!(
                 "{} sponsors\n  {}\n  {hints}",
@@ -101,6 +104,7 @@ fn list_interactive(
             ))
             .items(&items)
             .default(default)
+            .max_length(max_rows)
             .highlight_matches(false)
             .interact_opt()?;
 

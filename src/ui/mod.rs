@@ -3,10 +3,41 @@ pub mod pager;
 pub use pager::Pager;
 
 use indicatif::{ProgressBar, ProgressStyle};
-use terminal_size::{Width, terminal_size};
+use terminal_size::{Height, Width, terminal_size};
 
 pub fn term_width() -> usize {
     terminal_size().map_or(100, |(Width(w), _)| w as usize)
+}
+
+pub fn term_height() -> usize {
+    terminal_size().map_or(24, |(_, Height(h))| h as usize)
+}
+
+/// How many list items fit in the terminal, accounting for line-wrap.
+/// `chrome_lines` = lines consumed by prompt/header/footer outside the item list.
+/// Each item that is wider than the terminal wraps and occupies multiple visual rows.
+pub fn max_visible_items(items: &[String], chrome_lines: usize) -> usize {
+    let width = term_width();
+    let available = term_height().saturating_sub(chrome_lines);
+    let mut visual_rows = 0;
+    let mut count = 0;
+
+    for item in items {
+        // FuzzySelect prepends a selector char + space (~4 cols of chrome per item)
+        let item_width = console::measure_text_width(item) + 4;
+        let rows = if width > 0 {
+            item_width.div_ceil(width).max(1)
+        } else {
+            1
+        };
+        if visual_rows + rows > available {
+            break;
+        }
+        visual_rows += rows;
+        count += 1;
+    }
+
+    count.max(1)
 }
 
 pub fn truncate(s: &str, max: usize) -> String {
