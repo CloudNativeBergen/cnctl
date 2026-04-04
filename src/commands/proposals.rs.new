@@ -320,7 +320,7 @@ pub async fn fetch_all(client: &TrpcClient) -> Result<Vec<Proposal>> {
     client.query("proposal.admin.list", None).await
 }
 
-pub async fn fetch_one(client: &TrpcClient, id: &str) -> Result<Proposal> {
+async fn fetch_one(client: &TrpcClient, id: &str) -> Result<Proposal> {
     let input = serde_json::json!({ "id": id });
     client.query("proposal.admin.getById", Some(&input)).await
 }
@@ -339,8 +339,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
     if args.json {
         list_json(&all, &args)
     } else if args.has_cli_filters() {
-        list_plain(&all, &args);
-        Ok(())
+        list_plain(&all, &args)
     } else {
         list_interactive(&client, &all).await
     }
@@ -372,19 +371,20 @@ fn list_json(all: &[Proposal], args: &ListArgs) -> Result<()> {
     Ok(())
 }
 
-fn list_plain(all: &[Proposal], args: &ListArgs) {
+fn list_plain(all: &[Proposal], args: &ListArgs) -> Result<()> {
     let filters = Filters::from(args);
     let filtered = apply_filters(all, &filters);
 
     if filtered.is_empty() {
         println!("No proposals match the given filters.");
-        return;
+        return Ok(());
     }
 
     println!("{TABLE_HEADER}");
     for p in &filtered {
         println!("{}", format_item(p));
     }
+    Ok(())
 }
 
 async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -> Result<()> {
@@ -471,7 +471,7 @@ async fn show_detail_loop(
         if idx + 1 < total {
             nav_parts.push("→ next");
         }
-        nav_parts.push("any other key to go back");
+        nav_parts.push("any other key → back to list");
         println!("\n{}", nav_parts.join(" · ").dimmed());
 
         match term.read_key()? {

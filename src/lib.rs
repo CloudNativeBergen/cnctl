@@ -4,3 +4,4 @@ pub mod commands;
 pub mod config;
 pub mod display;
 pub mod types;
+pub mod ui;

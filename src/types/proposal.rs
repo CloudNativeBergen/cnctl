@@ -1,6 +1,6 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Proposal {
     #[serde(rename = "_id")]
@@ -29,7 +29,7 @@ pub struct Proposal {
     pub video: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Speaker {
     #[serde(rename = "_id")]
@@ -41,14 +41,14 @@ pub struct Speaker {
     pub image: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Topic {
     #[serde(default)]
     pub title: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Review {
     #[serde(default)]
@@ -59,7 +59,7 @@ pub struct Review {
     pub reviewer: Option<Reviewer>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReviewScore {
     #[serde(default)]
@@ -76,7 +76,7 @@ impl ReviewScore {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reviewer {
     pub name: String,

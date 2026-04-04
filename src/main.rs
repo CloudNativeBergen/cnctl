@@ -34,12 +34,16 @@ enum AdminCommand {
 
 #[derive(Subcommand)]
 enum ProposalCommand {
-    /// List all proposals
-    List,
+    /// List all proposals (interactive by default, or use flags for scripting)
+    List(commands::proposals::ListArgs),
     /// Show proposal details
     Get {
         /// Proposal ID
         id: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -64,8 +68,8 @@ async fn main() -> Result<()> {
         Command::Status => commands::status::run(),
         Command::Admin(admin) => match admin {
             AdminCommand::Proposals(cmd) => match cmd {
-                ProposalCommand::List => commands::proposals::list().await,
-                ProposalCommand::Get { id } => commands::proposals::get(&id).await,
+                ProposalCommand::List(args) => commands::proposals::list(args).await,
+                ProposalCommand::Get { id, json } => commands::proposals::get(&id, json).await,
             },
             AdminCommand::Sponsors(cmd) => match cmd {
                 SponsorCommand::List => commands::sponsors::list().await,

@@ -1,19 +1,17 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 
+use super::require_client;
 use crate::client::TrpcClient;
-use crate::config;
 use crate::display;
 use crate::types::SponsorForConference;
 
 pub async fn list() -> Result<()> {
-    let cfg = config::load().context("Not logged in. Run `cnctl login` first.")?;
-    let client = TrpcClient::from_config(&cfg);
+    let client = require_client()?;
     list_with(&client).await
 }
 
 pub async fn get(id: &str) -> Result<()> {
-    let cfg = config::load().context("Not logged in. Run `cnctl login` first.")?;
-    let client = TrpcClient::from_config(&cfg);
+    let client = require_client()?;
     get_with(&client, id).await
 }
 

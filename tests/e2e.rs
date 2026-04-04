@@ -149,8 +149,8 @@ async fn proposals_get_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::get_with(&client, "talk-abc").await;
-    assert!(result.is_ok(), "get_with failed: {result:?}");
+    let result = proposals::fetch_one(&client, "talk-abc").await;
+    assert!(result.is_ok(), "fetch_one failed: {result:?}");
 }
 
 #[tokio::test]
@@ -166,7 +166,7 @@ async fn proposals_get_unauthorized_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "bad-token");
-    let result = proposals::get_with(&client, "talk-abc").await;
+    let result = proposals::fetch_one(&client, "talk-abc").await;
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(
@@ -349,7 +349,7 @@ async fn server_error_propagates_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::list_with(&client).await;
+    let result = proposals::fetch_all(&client).await;
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(err.contains("500"), "Expected 500 in error, got: {err}");
