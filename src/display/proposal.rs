@@ -103,7 +103,7 @@ pub fn pad_and_colorize_status(status: &str, width: usize) -> String {
     }
 }
 
-fn humanize_status(status: &str) -> &str {
+pub fn humanize_status(status: &str) -> &str {
     match status {
         "submitted" => "Submitted",
         "accepted" => "Accepted",
