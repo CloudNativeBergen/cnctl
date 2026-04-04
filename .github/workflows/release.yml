@@ -1,11 +1,15 @@
 name: Release
 
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
-permissions:
-  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,7 +17,14 @@ env:
 jobs:
   build:
     name: Build (${{ matrix.target }})
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
@@ -36,6 +47,8 @@ jobs:
             archive: zip
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -72,18 +85,23 @@ jobs:
           7z a ../../../cnctl-${{ matrix.target }}.zip cnctl.exe
         shell: bash
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: cnctl-${{ matrix.target }}.${{ matrix.archive }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: cnctl-${{ matrix.target }}
-          path: cnctl-${{ matrix.target }}.*
+          path: cnctl-${{ matrix.target }}.${{ matrix.archive }}
 
   release:
     name: Publish release
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v4
-
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -93,12 +111,25 @@ jobs:
         run: |
           cd artifacts
           sha256sum cnctl-* > SHA256SUMS
-        shell: bash
+
+      - name: Determine version
+        id: version
+        run: |
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          DATE=$(date -u +%Y.%m.%d)
+          echo "tag=${DATE}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "title=cnctl ${DATE} (${SHORT_SHA})" >> "$GITHUB_OUTPUT"
+          echo "sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ steps.version.outputs.sha }}
+          name: ${{ steps.version.outputs.title }}
           generate_release_notes: true
+          make_latest: true
           files: |
             artifacts/cnctl-*
             artifacts/SHA256SUMS
