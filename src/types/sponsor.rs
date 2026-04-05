@@ -45,14 +45,14 @@ impl<'de> Deserialize<'de> for SponsorStatus {
 
 impl fmt::Display for SponsorStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Prospect => write!(f, "prospect"),
-            Self::Contacted => write!(f, "contacted"),
-            Self::Negotiating => write!(f, "negotiating"),
-            Self::ClosedWon => write!(f, "closed-won"),
-            Self::ClosedLost => write!(f, "closed-lost"),
-            Self::Unknown => write!(f, "unknown"),
-        }
+        f.pad(match self {
+            Self::Prospect => "prospect",
+            Self::Contacted => "contacted",
+            Self::Negotiating => "negotiating",
+            Self::ClosedWon => "closed-won",
+            Self::ClosedLost => "closed-lost",
+            Self::Unknown => "unknown",
+        })
     }
 }
 

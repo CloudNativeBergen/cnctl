@@ -20,17 +20,21 @@ pub fn print_sponsor_list(sponsors: &[SponsorForConference]) {
 }
 
 pub const SPONSOR_TABLE_HEADER: &str =
-    "SPONSOR              STATUS         CONTRACT       TIER";
+    "SPONSOR              STATUS         CONTRACT          TIER";
 
 pub fn format_sponsor_row(s: &SponsorForConference) -> String {
     let name = s.sponsor.as_ref().map_or("Unknown", |sp| sp.name.as_str());
     let tier = s.tier.as_ref().map_or("-", |t| t.title.as_str());
     let contract = s.contract_status.as_deref().unwrap_or("-");
 
+    // Pad the status text *before* colorizing so ANSI codes don't break alignment
+    let status_padded = format!("{:<14}", s.status);
+    let status_colored = colorize_status_str(&status_padded, s.status);
+
     format!(
-        "{:<20} {:<23} {:<14} {}",
+        "{:<20} {} {:<17} {}",
         truncate(name, 18),
-        colorize_status(s.status),
+        status_colored,
         contract,
         tier
     )
@@ -112,7 +116,10 @@ pub fn print_sponsor_detail(sponsor: &SponsorForConference) {
 }
 
 fn colorize_status(status: SponsorStatus) -> String {
-    let label = status.to_string();
+    colorize_status_str(&status.to_string(), status)
+}
+
+fn colorize_status_str(label: &str, status: SponsorStatus) -> String {
     match status {
         SponsorStatus::ClosedWon => label.green().to_string(),
         SponsorStatus::Negotiating => label.yellow().to_string(),

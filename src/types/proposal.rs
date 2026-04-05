@@ -55,17 +55,17 @@ impl<'de> Deserialize<'de> for ProposalStatus {
 
 impl fmt::Display for ProposalStatus {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Submitted => write!(f, "Submitted"),
-            Self::Accepted => write!(f, "Accepted"),
-            Self::Confirmed => write!(f, "Confirmed"),
-            Self::Waitlisted => write!(f, "Waitlisted"),
-            Self::Rejected => write!(f, "Rejected"),
-            Self::Withdrawn => write!(f, "Withdrawn"),
-            Self::Draft => write!(f, "Draft"),
-            Self::Deleted => write!(f, "Deleted"),
-            Self::Unknown => write!(f, "Unknown"),
-        }
+        f.pad(match self {
+            Self::Submitted => "Submitted",
+            Self::Accepted => "Accepted",
+            Self::Confirmed => "Confirmed",
+            Self::Waitlisted => "Waitlisted",
+            Self::Rejected => "Rejected",
+            Self::Withdrawn => "Withdrawn",
+            Self::Draft => "Draft",
+            Self::Deleted => "Deleted",
+            Self::Unknown => "Unknown",
+        })
     }
 }
 
@@ -162,7 +162,7 @@ impl ProposalFormat {
 
 impl fmt::Display for ProposalFormat {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.label())
+        f.pad(self.label())
     }
 }
 
