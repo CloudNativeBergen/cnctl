@@ -1,8 +1,10 @@
 mod proposal;
 mod sponsor;
+mod status;
 
 pub use proposal::*;
 pub use sponsor::*;
+pub use status::*;
 
 use serde::Deserialize;
 

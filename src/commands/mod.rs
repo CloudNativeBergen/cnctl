@@ -3,6 +3,7 @@ use anyhow::{Context, Result};
 use crate::client::TrpcClient;
 use crate::config;
 
+pub mod admin_status;
 pub mod login;
 pub mod logout;
 pub mod proposals;

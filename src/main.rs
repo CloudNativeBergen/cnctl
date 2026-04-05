@@ -30,6 +30,12 @@ enum AdminCommand {
     /// Manage sponsor pipeline
     #[command(subcommand)]
     Sponsors(SponsorCommand),
+    /// Show conference status summary (sponsors, proposals, tickets, targets)
+    Status {
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -80,6 +86,7 @@ async fn main() -> Result<()> {
                 SponsorCommand::List(args) => commands::sponsors::list(args).await,
                 SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
             },
+            AdminCommand::Status { json } => commands::admin_status::run(json).await,
         },
     }
 }
