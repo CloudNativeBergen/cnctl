@@ -17,6 +17,13 @@ The organizer CLI for [Cloud Native Days Norway](https://cloudnativedays.no). Re
 
 ## 📦 Installation
 
+### Homebrew (macOS and Linux)
+
+```sh
+brew tap CloudNativeBergen/tap
+brew install cnctl
+```
+
 ### Download a prebuilt binary
 
 Grab the latest build for your platform from [GitHub Releases](https://github.com/CloudNativeBergen/cnctl/releases/latest):
@@ -142,11 +149,11 @@ cnctl admin proposals list --sort speaker --asc
 
 **Available filters:**
 
-| Flag | Values |
-|------|--------|
-| `--status` | `submitted`, `accepted`, `confirmed`, `waitlisted`, `rejected`, `withdrawn`, `draft`, `deleted` |
+| Flag       | Values                                                                                                                     |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `--status` | `submitted`, `accepted`, `confirmed`, `waitlisted`, `rejected`, `withdrawn`, `draft`, `deleted`                            |
 | `--format` | `lightning_10`, `presentation_20`, `presentation_25`, `presentation_40`, `presentation_45`, `workshop_120`, `workshop_240` |
-| `--sort` | `created`, `title`, `speaker`, `rating`, `reviews`, `status` |
+| `--sort`   | `created`, `title`, `speaker`, `rating`, `reviews`, `status`                                                               |
 
 **View a single proposal** with full details — speakers, topics, description, outline, and review scores:
 
@@ -156,16 +163,16 @@ cnctl admin proposals get <proposal-id>
 
 In **interactive mode**, selecting a proposal opens a scrollable detail view:
 
-| Key | Action |
-|-----|--------|
-| `↑` / `k` | Scroll up |
-| `↓` / `j` | Scroll down |
-| `Ctrl+U` / `PgUp` | Half-page up |
-| `Ctrl+D` / `PgDn` | Half-page down |
-| `←` / `h` | Previous proposal |
-| `→` / `l` | Next proposal |
-| `r` | Start a review |
-| `q` / `Esc` | Back to list |
+| Key               | Action            |
+| ----------------- | ----------------- |
+| `↑` / `k`         | Scroll up         |
+| `↓` / `j`         | Scroll down       |
+| `Ctrl+U` / `PgUp` | Half-page up      |
+| `Ctrl+D` / `PgDn` | Half-page down    |
+| `←` / `h`         | Previous proposal |
+| `→` / `l`         | Next proposal     |
+| `r`               | Start a review    |
+| `q` / `Esc`       | Back to list      |
 
 **JSON output** for scripting and automation:
 
@@ -207,8 +214,8 @@ cnctl admin sponsors list --status prospect,negotiating
 cnctl admin sponsors list --status closedWon
 ```
 
-| Flag | Values |
-|------|--------|
+| Flag       | Values                                                              |
+| ---------- | ------------------------------------------------------------------- |
 | `--status` | `prospect`, `contacted`, `negotiating`, `closed-won`, `closed-lost` |
 
 **JSON output:**

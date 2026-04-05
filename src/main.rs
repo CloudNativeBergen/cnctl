@@ -3,7 +3,7 @@ use clap::{Parser, Subcommand};
 use cnctl::commands;
 
 #[derive(Parser)]
-#[command(name = "cnctl", about = "CLI for Cloud Native Days Norway")]
+#[command(name = "cnctl", about = "CLI for Cloud Native Days Norway", version)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
