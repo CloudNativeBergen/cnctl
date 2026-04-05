@@ -101,8 +101,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    outputs:
-      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -135,39 +133,3 @@ jobs:
           files: |
             artifacts/cnctl-*
             artifacts/SHA256SUMS
-
-  update-tap:
-    name: Update Homebrew tap
-    needs: [release]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-          merge-multiple: true
-
-      - name: Parse checksums
-        id: sums
-        run: |
-          cd artifacts
-          echo "mac_arm=$(sha256sum cnctl-aarch64-apple-darwin.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "mac_x86=$(sha256sum cnctl-x86_64-apple-darwin.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "linux_arm=$(sha256sum cnctl-aarch64-unknown-linux-gnu.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-          echo "linux_x86=$(sha256sum cnctl-x86_64-unknown-linux-gnu.tar.gz | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-
-      # Dispatch to homebrew-tap so its own GITHUB_TOKEN writes the formula —
-      # no cross-repo PAT needed.
-      - name: Trigger tap update
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api repos/CloudNativeBergen/homebrew-tap/dispatches \
-            --method POST \
-            --field event_type=update-formula \
-            --field client_payload[version]="${{ needs.release.outputs.tag }}" \
-            --field client_payload[mac_arm]="${{ steps.sums.outputs.mac_arm }}" \
-            --field client_payload[mac_x86]="${{ steps.sums.outputs.mac_x86 }}" \
-            --field client_payload[linux_arm]="${{ steps.sums.outputs.linux_arm }}" \
-            --field client_payload[linux_x86]="${{ steps.sums.outputs.linux_x86 }}"
