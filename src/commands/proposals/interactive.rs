@@ -7,8 +7,8 @@ use crate::client::TrpcClient;
 use crate::types::Proposal;
 use crate::{config, display, ui};
 
-use super::display::{filter_summary, format_item, TABLE_HEADER};
-use super::filters::{apply_filters, Filters};
+use super::display::{TABLE_HEADER, filter_summary, format_item};
+use super::filters::{Filters, apply_filters};
 use super::review::prompt_and_submit_review;
 
 pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -> Result<()> {
@@ -108,10 +108,7 @@ pub fn show_filter_menu(filters: &mut Filters) -> Result<()> {
             }
         })
         .collect();
-    let format_labels: Vec<&str> = FORMATS
-        .iter()
-        .map(|f| f.label())
-        .collect();
+    let format_labels: Vec<&str> = FORMATS.iter().map(|f| f.label()).collect();
 
     println!(
         "\n{}",

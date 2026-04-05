@@ -8,9 +8,7 @@ pub const TABLE_HEADER: &str = "STATUS       FORMAT           TITLE · SPEAKER";
 pub fn format_item(p: &Proposal) -> String {
     let speakers: Vec<&str> = p.speakers.iter().map(|s| s.name.as_str()).collect();
     let speaker_str = speakers.join(", ");
-    let format = p
-        .format
-        .map_or("-".to_string(), |f| f.label().to_string());
+    let format = p.format.map_or("-".to_string(), |f| f.label().to_string());
     let status = display::pad_and_colorize_status(p.status, 12);
 
     let prefix_len = 12 + 1 + 16 + 1;

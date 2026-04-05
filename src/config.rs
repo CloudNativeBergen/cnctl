@@ -49,7 +49,9 @@ pub fn save_to(config: &Config, path: &Path) -> Result<()> {
 
     // Write atomically: temp file → fsync → rename
     // This prevents corruption if the process is interrupted mid-write.
-    let dir = path.parent().context("Config path has no parent directory")?;
+    let dir = path
+        .parent()
+        .context("Config path has no parent directory")?;
     let tmp_path = dir.join(".config.toml.tmp");
 
     {

@@ -19,8 +19,7 @@ pub fn print_sponsor_list(sponsors: &[SponsorForConference]) {
     println!("\n{} sponsors", sponsors.len());
 }
 
-pub const SPONSOR_TABLE_HEADER: &str =
-    "SPONSOR              STATUS         CONTRACT          TIER";
+pub const SPONSOR_TABLE_HEADER: &str = "SPONSOR              STATUS         CONTRACT          TIER";
 
 pub fn format_sponsor_row(s: &SponsorForConference) -> String {
     let name = s.sponsor.as_ref().map_or("Unknown", |sp| sp.name.as_str());

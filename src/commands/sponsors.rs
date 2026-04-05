@@ -70,15 +70,15 @@ fn filter_by_status<'a>(
     statuses: Option<&[SponsorStatus]>,
 ) -> Vec<&'a SponsorForConference> {
     match statuses {
-        Some(s) if !s.is_empty() => sponsors.iter().filter(|sp| s.contains(&sp.status)).collect(),
+        Some(s) if !s.is_empty() => sponsors
+            .iter()
+            .filter(|sp| s.contains(&sp.status))
+            .collect(),
         _ => sponsors.iter().collect(),
     }
 }
 
-fn list_interactive(
-    _client: &TrpcClient,
-    sponsors: &[SponsorForConference],
-) -> Result<()> {
+fn list_interactive(_client: &TrpcClient, sponsors: &[SponsorForConference]) -> Result<()> {
     if sponsors.is_empty() {
         println!("No sponsors found.");
         return Ok(());

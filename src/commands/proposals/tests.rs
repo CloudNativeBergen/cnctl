@@ -1,5 +1,5 @@
 use super::args::SortField;
-use super::filters::{apply_filters, avg_rating, Filters};
+use super::filters::{Filters, apply_filters, avg_rating};
 use crate::types::{Proposal, ProposalFormat, ProposalStatus};
 
 fn make_proposal(id: &str, title: &str, status: &str, format: &str) -> Proposal {

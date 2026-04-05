@@ -77,6 +77,9 @@ pub struct ReviewArgs {
 
 impl ListArgs {
     pub fn has_cli_filters(&self) -> bool {
-        self.status.is_some() || self.format.is_some() || self.sort != SortField::Created || self.asc
+        self.status.is_some()
+            || self.format.is_some()
+            || self.sort != SortField::Created
+            || self.asc
     }
 }

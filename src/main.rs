@@ -65,11 +65,9 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Command::Login => {
-            tokio::task::spawn_blocking(commands::login::run)
-                .await
-                .context("Login task panicked")?
-        }
+        Command::Login => tokio::task::spawn_blocking(commands::login::run)
+            .await
+            .context("Login task panicked")?,
         Command::Logout => commands::logout::run(),
         Command::Status => commands::status::run(),
         Command::Admin(admin) => match admin {

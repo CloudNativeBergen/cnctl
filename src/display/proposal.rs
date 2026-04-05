@@ -2,7 +2,7 @@ use std::fmt::Write;
 
 use colored::Colorize;
 
-use crate::types::{portable_text_to_plain, Proposal, ProposalStatus};
+use crate::types::{Proposal, ProposalStatus, portable_text_to_plain};
 
 /// Render proposal details into a `String` (for scrollable views, etc.).
 pub fn render_proposal_detail(proposal: &Proposal) -> String {

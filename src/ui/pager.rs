@@ -33,10 +33,7 @@ impl Pager {
 
         let lines: Vec<String> = content.lines().map(String::from).collect();
 
-        let vis_rows: Vec<usize> = lines
-            .iter()
-            .map(|l| vis_row_count(l, term_w))
-            .collect();
+        let vis_rows: Vec<usize> = lines.iter().map(|l| vis_row_count(l, term_w)).collect();
 
         let hint_rows = vis_row_count(footer_hint, term_w);
         // chrome = header(1) + blank before hints(1) + hint rows + cursor(1)
