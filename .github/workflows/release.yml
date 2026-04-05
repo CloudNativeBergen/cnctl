@@ -64,10 +64,13 @@ jobs:
 
       - name: Build
         run: |
+          COMMIT_SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          VERSION="$(date -u +%Y.%m.%d)-${SHORT_SHA}"
           if [ "${{ matrix.cross }}" = "true" ]; then
-            cross build --release --target ${{ matrix.target }}
+            CNCTL_VERSION="$VERSION" cross build --release --target ${{ matrix.target }}
           else
-            cargo build --release --target ${{ matrix.target }}
+            CNCTL_VERSION="$VERSION" cargo build --release --target ${{ matrix.target }}
           fi
         shell: bash
 
