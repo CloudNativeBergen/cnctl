@@ -87,6 +87,7 @@ cnctl admin proposals review <id>   # interactive review prompts
 cnctl admin proposals review <id> --content 4 --relevance 3 --speaker 5 --comment "Great talk"
 
 cnctl admin sponsors list
+cnctl admin sponsors list --status negotiating,closedWon
 cnctl admin sponsors get <id>
 
 cnctl logout         # clear credentials
@@ -143,7 +144,7 @@ cnctl admin proposals list --sort speaker --asc
 
 | Flag | Values |
 |------|--------|
-| `--status` | `submitted`, `accepted`, `confirmed`, `waitlisted`, `rejected`, `withdrawn`, `draft` |
+| `--status` | `submitted`, `accepted`, `confirmed`, `waitlisted`, `rejected`, `withdrawn`, `draft`, `deleted` |
 | `--format` | `lightning_10`, `presentation_20`, `presentation_25`, `presentation_40`, `presentation_45`, `workshop_120`, `workshop_240` |
 | `--sort` | `created`, `title`, `speaker`, `rating`, `reviews`, `status` |
 
@@ -199,6 +200,23 @@ View the full sponsor pipeline with status, tier, and contract info:
 cnctl admin sponsors list
 ```
 
+**Filter by status:**
+
+```sh
+cnctl admin sponsors list --status prospect,negotiating
+cnctl admin sponsors list --status closedWon
+```
+
+| Flag | Values |
+|------|--------|
+| `--status` | `prospect`, `contacted`, `negotiating`, `closed-won`, `closed-lost` |
+
+**JSON output:**
+
+```sh
+cnctl admin sponsors list --json
+```
+
 Dive into a specific sponsor for contacts, billing details, and notes:
 
 ```sh
@@ -235,8 +253,11 @@ src/
   client.rs       — tRPC HTTP client
   config.rs       — TOML config read/write (~/.config/cnctl/)
   commands/       — command orchestration
+    proposals/    — proposal list, detail, review, filters, interactive mode
+    sponsors.rs   — sponsor list and detail
   display/        — terminal output formatting (colors, layout, truncation)
-  types/          — API response types (serde)
+  types/          — API response types with typed enums (serde)
+  ui/             — reusable TUI components (pager, spinner, terminal helpers)
 tests/
   e2e.rs          — end-to-end tests with wiremock
 ```
