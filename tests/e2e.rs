@@ -1,8 +1,9 @@
 use cnctl::client::TrpcClient;
 use cnctl::commands::{proposals, sponsors};
 use cnctl::config::{self, Config};
+use cnctl::template;
 use tempfile::TempDir;
-use wiremock::matchers::{method, path, query_param_contains};
+use wiremock::matchers::{body_string_contains, method, path, query_param_contains};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -427,4 +428,205 @@ async fn server_error_propagates_e2e() {
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(err.contains("500"), "Expected 500 in error, got: {err}");
+}
+
+// ─── Email template e2e tests ────────────────────────────────────────────────
+
+fn template_list_json() -> serde_json::Value {
+    serde_json::json!({
+        "result": {
+            "data": {
+                "templates": [
+                    {
+                        "_id": "tmpl-1",
+                        "title": "Cold Outreach (English)",
+                        "slug": {"current": "cold-outreach-en"},
+                        "category": "cold-outreach",
+                        "language": "en",
+                        "subject": "Partnership with {{{CONFERENCE_TITLE}}}",
+                        "bodyMarkdown": "Dear {{{CONTACT_NAMES}}},\n\nWe'd love to have **{{{SPONSOR_NAME}}}** as a sponsor for {{{CONFERENCE_TITLE}}}.\n\nBest regards,\n{{{SENDER_NAME}}}",
+                        "description": "Initial outreach to new sponsors",
+                        "isDefault": true,
+                        "sortOrder": 1
+                    },
+                    {
+                        "_id": "tmpl-2",
+                        "title": "Follow-up (Norwegian)",
+                        "slug": {"current": "follow-up-no"},
+                        "category": "follow-up",
+                        "language": "no",
+                        "subject": "Oppfølging - {{{CONFERENCE_TITLE}}}",
+                        "bodyMarkdown": "Hei {{{CONTACT_NAMES}}},\n\nVi følger opp vår henvendelse.",
+                        "sortOrder": 2
+                    }
+                ],
+                "variables": {
+                    "SPONSOR_NAME": "Acme Corp",
+                    "CONTACT_NAMES": "Jane Doe",
+                    "CONFERENCE_TITLE": "Cloud Native Days 2026",
+                    "SENDER_NAME": "Hans"
+                },
+                "recipients": [
+                    {"name": "Jane Doe", "email": "jane@acme.com"}
+                ],
+                "sponsorName": "Acme Corp"
+            }
+        }
+    })
+}
+
+fn send_email_response_json() -> serde_json::Value {
+    serde_json::json!({
+        "result": {
+            "data": {
+                "success": true,
+                "emailId": "email-abc-123",
+                "recipientCount": 1
+            }
+        }
+    })
+}
+
+#[tokio::test]
+async fn email_fetch_templates_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/trpc/sponsor.emailTemplates.listForSponsor"))
+        .and(query_param_contains("input", "sfc-111"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(template_list_json()))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "test-token");
+    let result = sponsors::email::fetch_templates(&client, "sfc-111").await;
+    assert!(result.is_ok(), "fetch_templates failed: {result:?}");
+
+    let resp = result.unwrap();
+    assert_eq!(resp.templates.len(), 2);
+    assert_eq!(resp.templates[0].title, "Cold Outreach (English)");
+    assert_eq!(resp.templates[0].slug.current, "cold-outreach-en");
+    assert_eq!(resp.variables.get("SPONSOR_NAME").unwrap(), "Acme Corp");
+    assert_eq!(resp.sponsor_name.as_deref(), Some("Acme Corp"));
+    assert_eq!(resp.recipients.len(), 1);
+    assert_eq!(resp.recipients[0].email, "jane@acme.com");
+}
+
+#[tokio::test]
+async fn email_template_variable_substitution_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/trpc/sponsor.emailTemplates.listForSponsor"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(template_list_json()))
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "test-token");
+    let resp = sponsors::email::fetch_templates(&client, "sfc-111")
+        .await
+        .unwrap();
+
+    let tmpl = &resp.templates[0];
+    let subject = template::substitute_variables(&tmpl.subject, &resp.variables);
+    let body = template::substitute_variables(
+        tmpl.body_markdown.as_deref().unwrap_or(""),
+        &resp.variables,
+    );
+
+    assert_eq!(subject, "Partnership with Cloud Native Days 2026");
+    assert!(body.contains("Acme Corp"));
+    assert!(body.contains("Jane Doe"));
+    assert!(body.contains("Hans"));
+
+    // No unresolved variables
+    assert!(template::find_unresolved_variables(&subject).is_empty());
+    assert!(template::find_unresolved_variables(&body).is_empty());
+}
+
+#[tokio::test]
+async fn email_send_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.sendEmailBySfc"))
+        .and(body_string_contains("sfc-111"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(send_email_response_json()))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "test-token");
+    let input = serde_json::json!({
+        "sponsorForConferenceId": "sfc-111",
+        "subject": "Hello from tests",
+        "body": "This is a test email body.",
+    });
+    let result: cnctl::types::SendEmailResponse = client
+        .mutate("sponsor.crm.sendEmailBySfc", &input)
+        .await
+        .unwrap();
+
+    assert!(result.success);
+    assert_eq!(result.email_id.as_deref(), Some("email-abc-123"));
+    assert_eq!(result.recipient_count, Some(1));
+}
+
+#[tokio::test]
+async fn email_send_unauthorized_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.sendEmailBySfc"))
+        .respond_with(ResponseTemplate::new(401).set_body_json(serde_json::json!({
+            "error": {"message": "UNAUTHORIZED"}
+        })))
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "bad-token");
+    let input = serde_json::json!({
+        "sponsorForConferenceId": "sfc-111",
+        "subject": "Test",
+        "body": "Test body",
+    });
+    let result: Result<cnctl::types::SendEmailResponse, _> = client
+        .mutate("sponsor.crm.sendEmailBySfc", &input)
+        .await;
+
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("UNAUTHORIZED"),
+        "Expected UNAUTHORIZED, got: {err}"
+    );
+}
+
+#[tokio::test]
+async fn email_fetch_templates_empty_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/trpc/sponsor.emailTemplates.listForSponsor"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {
+                "data": {
+                    "templates": [],
+                    "variables": {},
+                    "recipients": []
+                }
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "test-token");
+    let resp = sponsors::email::fetch_templates(&client, "sfc-999")
+        .await
+        .unwrap();
+
+    assert!(resp.templates.is_empty());
+    assert!(resp.variables.is_empty());
+    assert!(resp.recipients.is_empty());
 }

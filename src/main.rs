@@ -64,6 +64,8 @@ enum SponsorCommand {
         /// Sponsor-for-conference ID
         id: String,
     },
+    /// Send an email to a sponsor using templates
+    Email(commands::sponsors::EmailArgs),
 }
 
 #[tokio::main]
@@ -85,6 +87,7 @@ async fn main() -> Result<()> {
             AdminCommand::Sponsors(cmd) => match cmd {
                 SponsorCommand::List(args) => commands::sponsors::list(args).await,
                 SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
+                SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
             },
             AdminCommand::Status { json } => commands::admin_status::run(json).await,
         },

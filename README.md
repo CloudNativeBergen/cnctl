@@ -11,6 +11,7 @@ The organizer CLI for [Cloud Native Days Norway](https://cloudnativedays.no). Re
 - 🔐 **Browser-based login** — authenticate with GitHub or LinkedIn OAuth, no API keys to manage
 - 📋 **Interactive proposal review** — fuzzy-search, filter by status/format, sort by rating, and scroll through details with vim-style keybindings
 - 💰 **Sponsor pipeline** — track sponsors from prospect to paid, with contacts, tiers, and contract status
+- 📧 **Sponsor emails** — send templated emails to sponsors with interactive template picker, `$EDITOR` integration, and variable substitution
 - 🎨 **Color-coded output** — status badges at a glance (green = confirmed, yellow = submitted, red = rejected, …)
 - 📊 **JSON output** — pipe to `jq` or feed into scripts with `--json`
 - 🖥️ **Cross-platform** — prebuilt binaries for macOS, Linux, and Windows
@@ -96,6 +97,11 @@ cnctl admin proposals review <id> --content 4 --relevance 3 --speaker 5 --commen
 cnctl admin sponsors list
 cnctl admin sponsors list --status negotiating,closedWon
 cnctl admin sponsors get <id>
+
+cnctl admin sponsors email <id>                    # interactive template picker
+cnctl admin sponsors email <id> --template <slug>  # use specific template
+cnctl admin sponsors email <id> --message "Hello"  # send direct message
+cnctl admin sponsors email <id> --dry-run          # preview without sending
 
 cnctl logout         # clear credentials
 ```
@@ -230,6 +236,52 @@ Dive into a specific sponsor for contacts, billing details, and notes:
 cnctl admin sponsors get <sponsor-id>
 ```
 
+### Sponsor Emails
+
+Send templated emails to sponsor contacts directly from the terminal. Templates are managed in the web UI and delivered with full conference branding via Resend.
+
+**Interactive mode** (default) — shows a fuzzy-search template picker, pre-sorted by relevance for the sponsor's status and language:
+
+```sh
+cnctl admin sponsors email <sponsor-id>
+```
+
+**Select a specific template:**
+
+```sh
+cnctl admin sponsors email <sponsor-id> --template cold-outreach-en
+```
+
+**Send a direct message** (skip templates):
+
+```sh
+cnctl admin sponsors email <sponsor-id> --message "Quick follow-up on our call."
+```
+
+**Preview without sending:**
+
+```sh
+cnctl admin sponsors email <sponsor-id> --dry-run
+cnctl admin sponsors email <sponsor-id> --dry-run --json
+```
+
+**Edit in your editor before sending:**
+
+```sh
+cnctl admin sponsors email <sponsor-id> --edit
+```
+
+| Flag           | Description                                           |
+| -------------- | ----------------------------------------------------- |
+| `--template`   | Template slug (skip interactive picker)                |
+| `--subject`    | Override the email subject                             |
+| `--message`    | Use this body directly (skip template selection)       |
+| `--edit`       | Open `$EDITOR` to edit the message before sending      |
+| `--dry-run`    | Preview the email without sending                      |
+| `--json`       | Output as JSON                                         |
+
+Template variables like `{{{SPONSOR_NAME}}}`, `{{{CONTACT_NAMES}}}`, and `{{{CONFERENCE_TITLE}}}` are automatically resolved from the sponsor and conference context.
+
 ## 🛠️ Development
 
 ### Prerequisites
@@ -259,9 +311,10 @@ src/
   auth.rs         — browser-based OAuth flow with local callback server
   client.rs       — tRPC HTTP client
   config.rs       — TOML config read/write (~/.config/cnctl/)
+  template.rs     — {{{VAR}}} template variable substitution
   commands/       — command orchestration
     proposals/    — proposal list, detail, review, filters, interactive mode
-    sponsors.rs   — sponsor list and detail
+    sponsors/     — sponsor list, detail, email sending with template picker
   display/        — terminal output formatting (colors, layout, truncation)
   types/          — API response types with typed enums (serde)
   ui/             — reusable TUI components (pager, spinner, terminal helpers)

@@ -1,7 +1,9 @@
+mod email_template;
 mod proposal;
 mod sponsor;
 mod status;
 
+pub use email_template::*;
 pub use proposal::*;
 pub use sponsor::*;
 pub use status::*;

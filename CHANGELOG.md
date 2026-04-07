@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `cnctl admin sponsors email <id>` — send templated emails to sponsors
+  - Interactive fuzzy-search template picker, pre-sorted by relevance
+  - `--template <slug>` for non-interactive template selection
+  - `--message` for direct message (skip templates)
+  - `--edit` to open `$EDITOR` before sending
+  - `--dry-run` to preview without sending
+  - `--json` for machine-readable output
+  - Automatic variable substitution (`{{{SPONSOR_NAME}}}`, etc.)
+- Template variable engine (`template.rs`) with unresolved variable detection
 - Browser-based OAuth login (GitHub / LinkedIn) with conference selection
 - `cnctl login` / `cnctl logout` / `cnctl status` commands
 - `cnctl admin proposals list` — list all talk proposals
