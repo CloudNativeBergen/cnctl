@@ -105,6 +105,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
@@ -125,13 +130,20 @@ jobs:
           echo "title=cnctl ${DATE} (${SHORT_SHA})" >> "$GITHUB_OUTPUT"
           echo "sha=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
 
+      - name: Generate release notes
+        id: changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --unreleased --tag ${{ steps.version.outputs.tag }}
+
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           target_commitish: ${{ steps.version.outputs.sha }}
           name: ${{ steps.version.outputs.title }}
-          generate_release_notes: true
+          body: ${{ steps.changelog.outputs.content }}
           make_latest: true
           files: |
             artifacts/cnctl-*
