@@ -30,15 +30,19 @@ Thanks for your interest in contributing to cnctl!
 
 ## Commit messages
 
-Use clear, concise commit messages. Reference issues where applicable.
+Use [Conventional Commits](https://www.conventionalcommits.org/) format.
+Release notes are auto-generated from these by git-cliff.
+
+```
+feat(sponsors): add email template picker
+fix: handle missing conference ID
+docs: update README with new flags
+```
+
+See `cliff.toml` for which prefixes are included/excluded.
 
 ## Releases
 
-Releases are automated via GitHub Actions. Tag a version to trigger a build:
-
-```sh
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-This cross-compiles binaries for Linux, macOS, and Windows.
+Releases are fully automated. Every push to `main` that passes CI triggers a
+release with cross-compiled binaries and auto-generated release notes. Tags use
+date-based versioning (`YYYY.MM.DD-<shortsha>`) — do not create tags manually.
