@@ -299,7 +299,11 @@ mod tests {
 
     #[test]
     fn language_display() {
-        assert!(TemplateLanguage::Norwegian.to_string().contains("Norwegian"));
+        assert!(
+            TemplateLanguage::Norwegian
+                .to_string()
+                .contains("Norwegian")
+        );
         assert!(TemplateLanguage::English.to_string().contains("English"));
     }
 }

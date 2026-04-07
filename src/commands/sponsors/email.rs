@@ -7,9 +7,7 @@ use dialoguer::{Confirm, FuzzySelect, Select};
 use super::args::EmailArgs;
 use crate::client::TrpcClient;
 use crate::template;
-use crate::types::{
-    SendEmailResponse, SponsorEmailTemplate, TemplateListResponse,
-};
+use crate::types::{SendEmailResponse, SponsorEmailTemplate, TemplateListResponse};
 use crate::ui;
 
 pub async fn run(args: EmailArgs) -> Result<()> {
@@ -19,10 +17,7 @@ pub async fn run(args: EmailArgs) -> Result<()> {
     let template_resp = fetch_templates(&client, &args.id).await?;
     sp.finish_and_clear();
 
-    let sponsor_name = template_resp
-        .sponsor_name
-        .as_deref()
-        .unwrap_or("Unknown");
+    let sponsor_name = template_resp.sponsor_name.as_deref().unwrap_or("Unknown");
 
     let is_interactive = console::Term::stdout().is_term() && args.message.is_none();
 
@@ -36,10 +31,9 @@ pub async fn run(args: EmailArgs) -> Result<()> {
     } else if is_interactive {
         pick_template_interactive(&args, &template_resp, sponsor_name)?
     } else {
-        let slug = args
-            .template
-            .as_deref()
-            .ok_or_else(|| anyhow::anyhow!("--template or --message required in non-interactive mode"))?;
+        let slug = args.template.as_deref().ok_or_else(|| {
+            anyhow::anyhow!("--template or --message required in non-interactive mode")
+        })?;
         pick_template_by_slug(&args, &template_resp, slug)?
     };
 
@@ -84,7 +78,15 @@ pub async fn run(args: EmailArgs) -> Result<()> {
         }
     }
 
-    send_email(&client, &args, &args.id, &subject, &body, &recipients_display).await
+    send_email(
+        &client,
+        &args,
+        &args.id,
+        &subject,
+        &body,
+        &recipients_display,
+    )
+    .await
 }
 
 fn pick_template_interactive(
@@ -96,11 +98,7 @@ fn pick_template_interactive(
         bail!("No email templates found. Create templates in the web UI first.");
     }
 
-    let items: Vec<String> = resp
-        .templates
-        .iter()
-        .map(format_template_item)
-        .collect();
+    let items: Vec<String> = resp.templates.iter().map(format_template_item).collect();
 
     let default_idx = if let Some(ref slug) = args.template {
         resp.templates
@@ -167,7 +165,11 @@ fn format_template_item(t: &SponsorEmailTemplate) -> String {
         crate::types::TemplateLanguage::English => "🇬🇧",
         crate::types::TemplateLanguage::Unknown => "  ",
     };
-    let default_marker = if t.is_default == Some(true) { " ★" } else { "" };
+    let default_marker = if t.is_default == Some(true) {
+        " ★"
+    } else {
+        ""
+    };
     format!(
         "{} {:<30} {:<16}{}",
         lang,
@@ -310,9 +312,7 @@ async fn send_email(
         "body": body,
     });
 
-    let result: SendEmailResponse = client
-        .mutate("sponsor.crm.sendEmailBySfc", &input)
-        .await?;
+    let result: SendEmailResponse = client.mutate("sponsor.crm.sendEmailBySfc", &input).await?;
     sp.finish_and_clear();
 
     if args.json {

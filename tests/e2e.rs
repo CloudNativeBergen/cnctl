@@ -591,9 +591,8 @@ async fn email_send_unauthorized_e2e() {
         "subject": "Test",
         "body": "Test body",
     });
-    let result: Result<cnctl::types::SendEmailResponse, _> = client
-        .mutate("sponsor.crm.sendEmailBySfc", &input)
-        .await;
+    let result: Result<cnctl::types::SendEmailResponse, _> =
+        client.mutate("sponsor.crm.sendEmailBySfc", &input).await;
 
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();

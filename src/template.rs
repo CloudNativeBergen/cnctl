@@ -122,23 +122,18 @@ mod tests {
 
     #[test]
     fn find_unresolved_single() {
-        assert_eq!(
-            find_unresolved_variables("Hello {{{NAME}}}!"),
-            vec!["NAME"]
-        );
+        assert_eq!(find_unresolved_variables("Hello {{{NAME}}}!"), vec!["NAME"]);
     }
 
     #[test]
     fn find_unresolved_multiple() {
-        let result =
-            find_unresolved_variables("{{{A}}} and {{{B}}} with {{{C}}}");
+        let result = find_unresolved_variables("{{{A}}} and {{{B}}} with {{{C}}}");
         assert_eq!(result, vec!["A", "B", "C"]);
     }
 
     #[test]
     fn find_unresolved_deduplicates() {
-        let result =
-            find_unresolved_variables("{{{NAME}}} is {{{NAME}}}");
+        let result = find_unresolved_variables("{{{NAME}}} is {{{NAME}}}");
         assert_eq!(result, vec!["NAME"]);
     }
 
