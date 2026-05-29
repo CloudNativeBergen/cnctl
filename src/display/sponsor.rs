@@ -106,12 +106,64 @@ pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
         writeln!(buf, "\nTags: {}", sponsor.tags.join(", ")).unwrap();
     }
 
+    if !sponsor.activities.is_empty() {
+        writeln!(buf, "\nRecent Activity:").unwrap();
+        for activity in sponsor.activities.iter().take(5) {
+            let date = &activity.created_at[..10];
+            let type_label = format!("[{}]", activity.activity_type).to_uppercase();
+            writeln!(
+                buf,
+                "  {} {} {}",
+                date.dimmed(),
+                type_label.yellow(),
+                activity.description
+            )
+            .unwrap();
+        }
+        if sponsor.activities.len() > 5 {
+            writeln!(buf, "  ... (use `history` for full log)").unwrap();
+        }
+    }
+
     buf
 }
 
 /// Print sponsor details to stdout.
 pub fn print_sponsor_detail(sponsor: &SponsorForConference) {
     print!("{}", render_sponsor_detail(sponsor));
+}
+
+pub fn print_sponsor_history(sponsor: &SponsorForConference) {
+    let name = sponsor
+        .sponsor
+        .as_ref()
+        .map_or("Unknown", |s| s.name.as_str());
+
+    println!("{} - History", name.bold());
+    println!("ID: {}\n", sponsor.id);
+
+    if sponsor.activities.is_empty() {
+        println!("No activities recorded yet.");
+        return;
+    }
+
+    for activity in &sponsor.activities {
+        let date = &activity.created_at[..10]; // Simple YYYY-MM-DD
+        let type_label = format!("[{}]", activity.activity_type).to_uppercase();
+        let author = activity
+            .created_by
+            .as_ref()
+            .map(|a| format!(" by {}", a.name))
+            .unwrap_or_default();
+
+        println!(
+            "{} {} {}{}",
+            date.dimmed(),
+            type_label.yellow(),
+            activity.description,
+            author.dimmed()
+        );
+    }
 }
 
 fn colorize_status(status: SponsorStatus) -> String {

@@ -56,7 +56,69 @@ impl fmt::Display for SponsorStatus {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ActivityType {
+    Note,
+    Call,
+    Meeting,
+    Email,
+    StageChange,
+    #[value(skip)]
+    #[serde(other)]
+    #[default]
+    Unknown,
+}
+
+impl<'de> Deserialize<'de> for ActivityType {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "camelCase")]
+        enum Helper {
+            Note,
+            Call,
+            Meeting,
+            Email,
+            StageChange,
+            #[serde(other)]
+            Unknown,
+        }
+        Ok(match Helper::deserialize(deserializer)? {
+            Helper::Note => Self::Note,
+            Helper::Call => Self::Call,
+            Helper::Meeting => Self::Meeting,
+            Helper::Email => Self::Email,
+            Helper::StageChange => Self::StageChange,
+            Helper::Unknown => Self::Unknown,
+        })
+    }
+}
+
+impl fmt::Display for ActivityType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(match self {
+            Self::Note => "note",
+            Self::Call => "call",
+            Self::Meeting => "meeting",
+            Self::Email => "email",
+            Self::StageChange => "stage-change",
+            Self::Unknown => "unknown",
+        })
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SponsorActivity {
+    #[serde(rename = "_id")]
+    pub id: String,
+    pub activity_type: ActivityType,
+    pub description: String,
+    pub created_at: String,
+    pub created_by: Option<AssignedTo>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorForConference {
     #[serde(rename = "_id")]
@@ -90,9 +152,11 @@ pub struct SponsorForConference {
     pub invoice_sent_at: Option<String>,
     #[serde(default)]
     pub invoice_paid_at: Option<String>,
+    #[serde(default, deserialize_with = "null_to_vec")]
+    pub activities: Vec<SponsorActivity>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorRef {
     #[serde(rename = "_id")]
@@ -102,7 +166,7 @@ pub struct SponsorRef {
     pub website: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TierRef {
     #[serde(rename = "_id")]
@@ -110,7 +174,7 @@ pub struct TierRef {
     pub title: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignedTo {
     #[serde(rename = "_id")]
@@ -118,7 +182,7 @@ pub struct AssignedTo {
     pub name: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactPerson {
     pub name: String,
@@ -132,7 +196,7 @@ pub struct ContactPerson {
     pub is_primary: Option<bool>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Billing {
     #[serde(default)]

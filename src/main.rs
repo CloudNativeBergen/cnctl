@@ -59,11 +59,24 @@ enum ProposalCommand {
 enum SponsorCommand {
     /// List sponsor pipeline (interactive by default, or use flags for scripting)
     List(commands::sponsors::ListArgs),
+    /// Add a new sponsor to the CRM
+    Add(commands::sponsors::CreateArgs),
     /// Show sponsor details
     Get {
         /// Sponsor-for-conference ID
         id: String,
     },
+    /// Show sponsor history (activities, notes, stage changes)
+    History {
+        /// Sponsor-for-conference ID
+        id: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Add a manual note/activity to a sponsor's history
+    Note(commands::sponsors::NoteArgs),
     /// Send an email to a sponsor using templates
     Email(commands::sponsors::EmailArgs),
 }
@@ -86,7 +99,12 @@ async fn main() -> Result<()> {
             },
             AdminCommand::Sponsors(cmd) => match cmd {
                 SponsorCommand::List(args) => commands::sponsors::list(args).await,
+                SponsorCommand::Add(args) => commands::sponsors::create(args).await,
                 SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
+                SponsorCommand::History { id, json } => {
+                    commands::sponsors::history(&id, json).await
+                }
+                SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
                 SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
             },
             AdminCommand::Status { json } => commands::admin_status::run(json).await,

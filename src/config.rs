@@ -14,6 +14,9 @@ pub struct Config {
 }
 
 fn default_path() -> Result<PathBuf> {
+    if let Ok(path) = std::env::var("CNCTL_CONFIG") {
+        return Ok(PathBuf::from(path));
+    }
     let base = dirs::config_dir().context("Could not determine config directory")?;
     Ok(base.join("cnctl").join("config.toml"))
 }

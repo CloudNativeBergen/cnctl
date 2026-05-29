@@ -414,6 +414,99 @@ async fn full_pipeline_sponsors_e2e() {
 }
 
 #[tokio::test]
+async fn sponsors_history_e2e() {
+    let server = MockServer::start().await;
+
+    let history_json = serde_json::json!({
+        "result": {
+            "data": [
+                {
+                    "_id": "sfc-111",
+                    "status": "closed-won",
+                    "sponsor": {"_id": "sp-a", "name": "Acme Corp"},
+                    "activities": [
+                        {
+                            "_id": "act-1",
+                            "activityType": "note",
+                            "description": "Followed up on booth size",
+                            "createdAt": "2026-05-29T12:00:00Z",
+                            "createdBy": {"_id": "org-1", "name": "Hans"}
+                        }
+                    ]
+                }
+            ]
+        }
+    });
+
+    Mock::given(method("GET"))
+        .and(path("/api/trpc/sponsor.crm.list"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(history_json))
+        .mount(&server)
+        .await;
+
+    // Set up config
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let _client = TrpcClient::new(&server.uri(), "test-token");
+    let result = sponsors::history("sfc-111", false).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn sponsors_add_note_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.activities.create"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"activityId": "act-new"}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let _client = TrpcClient::new(&server.uri(), "test-token");
+    let args = sponsors::NoteArgs {
+        id: "sfc-111".to_string(),
+        kind: cnctl::types::ActivityType::Note,
+        description: "Test note".to_string(),
+    };
+
+    // We need to bypass require_client or mock it.
+    // Since add_note calls require_client(), we should use a test that sets up config.
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+
+    // Set env var to point to this config
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::add_note(args).await;
+    assert!(result.is_ok(), "add_note failed: {result:?}");
+}
+
+#[tokio::test]
 async fn server_error_propagates_e2e() {
     let server = MockServer::start().await;
 
