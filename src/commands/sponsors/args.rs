@@ -1,15 +1,53 @@
 use clap::Args;
+use serde::Serialize;
 
-use crate::types::SponsorStatus;
+use crate::types::{SponsorStatus, SponsorView};
 
-#[derive(Args)]
+#[derive(Args, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListArgs {
+    /// CRM View to use
+    #[arg(long, value_enum, default_value_t = SponsorView::Pipeline)]
+    pub view: SponsorView,
+
+    /// Search across sponsor names, websites, and contact details
+    #[arg(long = "search")]
+    #[serde(rename = "searchQuery", skip_serializing_if = "Option::is_none")]
+    pub search: Option<String>,
+
     /// Filter by status (comma-separated)
     #[arg(long, value_delimiter = ',', value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<Vec<SponsorStatus>>,
+
+    /// Filter by my assigned items
+    #[arg(long = "mine")]
+    #[serde(rename = "myAssignedOnly")]
+    pub mine: bool,
+
+    /// Filter by organizer (speaker ID)
+    #[arg(long = "assigned-to")]
+    #[serde(rename = "assignedTo", skip_serializing_if = "Option::is_none")]
+    pub assigned_to: Option<String>,
+
+    /// Find leads without an assignee
+    #[arg(long = "unassigned")]
+    #[serde(rename = "unassignedOnly")]
+    pub unassigned: bool,
+
+    /// Filter by tags (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+
+    /// Filter by tier IDs (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tiers: Option<Vec<String>>,
 
     /// Output as JSON
     #[arg(long)]
+    #[serde(skip)]
     pub json: bool,
 }
 

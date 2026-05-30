@@ -112,7 +112,7 @@ async fn proposals_list_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::fetch_all(&client).await;
+    let result = proposals::fetch_all(&client, &proposals::ListArgs::default()).await;
     assert!(result.is_ok(), "fetch_all failed: {result:?}");
     let proposals = result.unwrap();
     assert_eq!(proposals.len(), 2);
@@ -132,7 +132,7 @@ async fn proposals_list_empty_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::fetch_all(&client).await;
+    let result = proposals::fetch_all(&client, &proposals::ListArgs::default()).await;
     assert!(result.is_ok());
     assert!(result.unwrap().is_empty());
 }
@@ -190,7 +190,7 @@ async fn sponsors_list_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = sponsors::fetch_all(&client).await;
+    let result = sponsors::fetch_all(&client, &sponsors::ListArgs::default()).await;
     assert!(result.is_ok(), "fetch_all failed: {result:?}");
 }
 
@@ -207,7 +207,7 @@ async fn sponsors_list_empty_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = sponsors::fetch_all(&client).await;
+    let result = sponsors::fetch_all(&client, &sponsors::ListArgs::default()).await;
     assert!(result.is_ok());
 }
 
@@ -222,7 +222,7 @@ async fn sponsors_get_existing_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let sponsors = sponsors::fetch_all(&client).await;
+    let sponsors = sponsors::fetch_all(&client, &sponsors::ListArgs::default()).await;
     assert!(sponsors.is_ok(), "fetch_all failed: {sponsors:?}");
     let found = sponsors.unwrap().iter().any(|s| s.id == "sfc-111");
     assert!(found, "Expected to find sfc-111");
@@ -239,7 +239,9 @@ async fn sponsors_get_not_found_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let sponsors = sponsors::fetch_all(&client).await.unwrap();
+    let sponsors = sponsors::fetch_all(&client, &sponsors::ListArgs::default())
+        .await
+        .unwrap();
     let found = sponsors.iter().any(|s| s.id == "nonexistent");
     assert!(!found, "Should not find nonexistent sponsor");
 }
@@ -377,7 +379,7 @@ async fn full_pipeline_proposals_e2e() {
     let client = TrpcClient::from_config(&loaded);
 
     // Step 3: Run the actual command logic
-    let result = proposals::fetch_all(&client).await;
+    let result = proposals::fetch_all(&client, &proposals::ListArgs::default()).await;
     assert!(result.is_ok(), "Full pipeline failed: {result:?}");
     assert_eq!(result.unwrap().len(), 2);
 }
@@ -409,7 +411,7 @@ async fn full_pipeline_sponsors_e2e() {
     // Load and run
     let loaded = config::load_from(&config_path).unwrap();
     let client = TrpcClient::from_config(&loaded);
-    let result = sponsors::fetch_all(&client).await;
+    let result = sponsors::fetch_all(&client, &sponsors::ListArgs::default()).await;
     assert!(result.is_ok(), "Full pipeline failed: {result:?}");
 }
 
@@ -517,7 +519,7 @@ async fn server_error_propagates_e2e() {
         .await;
 
     let client = TrpcClient::new(&server.uri(), "test-token");
-    let result = proposals::fetch_all(&client).await;
+    let result = proposals::fetch_all(&client, &proposals::ListArgs::default()).await;
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(err.contains("500"), "Expected 500 in error, got: {err}");

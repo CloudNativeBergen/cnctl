@@ -1,6 +1,6 @@
-use super::args::SortField;
-use super::filters::{Filters, apply_filters, avg_rating};
-use crate::types::{Proposal, ProposalFormat, ProposalStatus};
+use super::display::Filters;
+use super::interactive::apply_filters;
+use crate::types::{Proposal, ProposalFormat, ProposalSortBy, ProposalStatus, SortOrder};
 
 fn make_proposal(id: &str, title: &str, status: &str, format: &str) -> Proposal {
     serde_json::from_value(serde_json::json!({
@@ -127,8 +127,9 @@ fn sort_by_title_asc() {
     let filters = Filters {
         statuses: vec![],
         formats: vec![],
-        sort_by: SortField::Title,
-        sort_asc: true,
+        sort_by: ProposalSortBy::Title,
+        sort_order: SortOrder::Asc,
+        ..Filters::default()
     };
     let result = apply_filters(&proposals, &filters);
     let titles: Vec<&str> = result.iter().map(|p| p.title.as_str()).collect();
@@ -150,8 +151,9 @@ fn sort_by_title_desc() {
     let filters = Filters {
         statuses: vec![],
         formats: vec![],
-        sort_by: SortField::Title,
-        sort_asc: false,
+        sort_by: ProposalSortBy::Title,
+        sort_order: SortOrder::Desc,
+        ..Filters::default()
     };
     let result = apply_filters(&proposals, &filters);
     let titles: Vec<&str> = result.iter().map(|p| p.title.as_str()).collect();
@@ -169,8 +171,9 @@ fn sort_by_speaker() {
     let filters = Filters {
         statuses: vec![],
         formats: vec![],
-        sort_by: SortField::Speaker,
-        sort_asc: true,
+        sort_by: ProposalSortBy::Speaker,
+        sort_order: SortOrder::Asc,
+        ..Filters::default()
     };
     let result = apply_filters(&proposals, &filters);
     let speakers: Vec<&str> = result.iter().map(|p| p.speakers[0].name.as_str()).collect();
@@ -187,30 +190,13 @@ fn sort_by_rating_desc() {
     let filters = Filters {
         statuses: vec![],
         formats: vec![],
-        sort_by: SortField::Rating,
-        sort_asc: false,
+        sort_by: ProposalSortBy::Rating,
+        sort_order: SortOrder::Desc,
+        ..Filters::default()
     };
     let result = apply_filters(&proposals, &filters);
     let titles: Vec<&str> = result.iter().map(|p| p.title.as_str()).collect();
     assert_eq!(titles, vec!["High rated", "Medium rated", "Low rated"]);
-}
-
-#[test]
-fn sort_by_reviews_count() {
-    let proposals = vec![
-        make_proposal_with_reviews("1", "No reviews", &[]),
-        make_proposal_with_reviews("2", "Two reviews", &[(3.0, 3.0, 3.0), (4.0, 4.0, 4.0)]),
-        make_proposal_with_reviews("3", "One review", &[(5.0, 5.0, 5.0)]),
-    ];
-    let filters = Filters {
-        statuses: vec![],
-        formats: vec![],
-        sort_by: SortField::Reviews,
-        sort_asc: false,
-    };
-    let result = apply_filters(&proposals, &filters);
-    let counts: Vec<usize> = result.iter().map(|p| p.reviews.len()).collect();
-    assert_eq!(counts, vec![2, 1, 0]);
 }
 
 #[test]
@@ -219,29 +205,12 @@ fn filter_and_sort_combined() {
     let filters = Filters {
         statuses: vec![ProposalStatus::Submitted],
         formats: vec![],
-        sort_by: SortField::Title,
-        sort_asc: true,
+        sort_by: ProposalSortBy::Title,
+        sort_order: SortOrder::Asc,
+        ..Filters::default()
     };
     let result = apply_filters(&proposals, &filters);
     assert_eq!(result.len(), 2);
     assert_eq!(result[0].title, "Kubernetes Intro");
     assert_eq!(result[1].title, "Lightning Demo");
-}
-
-#[test]
-fn avg_rating_no_reviews() {
-    let p = make_proposal("1", "Test", "submitted", "presentation_40");
-    assert!(avg_rating(&p).abs() < f64::EPSILON);
-}
-
-#[test]
-fn avg_rating_single_review() {
-    let p = make_proposal_with_reviews("1", "Test", &[(4.0, 3.0, 5.0)]);
-    assert!((avg_rating(&p) - 12.0).abs() < f64::EPSILON);
-}
-
-#[test]
-fn avg_rating_multiple_reviews() {
-    let p = make_proposal_with_reviews("1", "Test", &[(3.0, 3.0, 3.0), (5.0, 5.0, 5.0)]);
-    assert!((avg_rating(&p) - 12.0).abs() < f64::EPSILON);
 }

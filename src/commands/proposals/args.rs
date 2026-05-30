@@ -1,53 +1,58 @@
-use std::fmt;
+use clap::Args;
+use serde::Serialize;
 
-use clap::{Args, ValueEnum};
+use crate::types::{ProposalFormat, ProposalSortBy, ProposalStatus, ReviewStatus, SortOrder};
 
-use crate::types::{ProposalFormat, ProposalStatus};
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
-pub enum SortField {
-    Created,
-    Title,
-    Speaker,
-    Rating,
-    Reviews,
-    Status,
-}
-
-impl fmt::Display for SortField {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Created => write!(f, "created"),
-            Self::Title => write!(f, "title"),
-            Self::Speaker => write!(f, "speaker"),
-            Self::Rating => write!(f, "rating"),
-            Self::Reviews => write!(f, "reviews"),
-            Self::Status => write!(f, "status"),
-        }
-    }
-}
-
-#[derive(Args)]
+#[derive(Args, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListArgs {
     /// Output as JSON (non-interactive)
     #[arg(long)]
+    #[serde(skip)]
     pub json: bool,
 
-    /// Filter by status (comma-separated, e.g. submitted,accepted)
+    /// Case-insensitive search across proposal titles and speaker names
+    #[arg(long)]
+    #[serde(rename = "searchQuery", skip_serializing_if = "Option::is_none")]
+    pub search: Option<String>,
+
+    /// Filter by one or more statuses (comma-separated, e.g. submitted,accepted)
     #[arg(long, value_delimiter = ',', value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<Vec<ProposalStatus>>,
 
-    /// Filter by format (comma-separated, e.g. `presentation_40,lightning_10`)
+    /// Filter by talk formats (comma-separated, e.g. `presentation_40,lightning_10`)
     #[arg(long, value_delimiter = ',', value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub format: Option<Vec<ProposalFormat>>,
 
-    /// Sort by field
-    #[arg(long, value_enum, default_value_t = SortField::Created)]
-    pub sort: SortField,
+    /// Filter by technical level (comma-separated, e.g. beginner,expert)
+    #[arg(long, value_delimiter = ',')]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<Vec<String>>,
 
-    /// Sort ascending instead of descending
+    /// Filter by review status
+    #[arg(long, value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_status: Option<ReviewStatus>,
+
+    /// Show only unreviewed proposals (alias for --review-status unreviewed)
     #[arg(long)]
-    pub asc: bool,
+    #[serde(skip)]
+    pub unreviewed: bool,
+
+    /// Automatically hides multiple talks from the same speaker
+    #[arg(long = "hide-multiple")]
+    #[serde(rename = "hideMultipleTalks")]
+    pub hide_multiple_talks: bool,
+
+    /// Sort by field
+    #[arg(long = "sort", value_enum, default_value_t = ProposalSortBy::Created)]
+    pub sort_by: ProposalSortBy,
+
+    /// Sort order
+    #[arg(long = "order", value_enum, default_value_t = SortOrder::Desc)]
+    pub sort_order: SortOrder,
 }
 
 #[derive(Args)]
@@ -77,9 +82,14 @@ pub struct ReviewArgs {
 
 impl ListArgs {
     pub fn has_cli_filters(&self) -> bool {
-        self.status.is_some()
+        self.search.is_some()
+            || self.status.is_some()
             || self.format.is_some()
-            || self.sort != SortField::Created
-            || self.asc
+            || self.level.is_some()
+            || self.review_status.is_some()
+            || self.unreviewed
+            || self.hide_multiple_talks
+            || self.sort_by != ProposalSortBy::Created
+            || self.sort_order != SortOrder::Desc
     }
 }

@@ -4,12 +4,40 @@ use console::Key;
 use dialoguer::FuzzySelect;
 
 use crate::client::TrpcClient;
-use crate::types::Proposal;
+use crate::types::{Proposal, ProposalFormat, ProposalSortBy, ProposalStatus, SortOrder};
 use crate::{config, display, ui};
 
-use super::display::{TABLE_HEADER, filter_summary, format_item};
-use super::filters::{Filters, apply_filters};
+use super::display::{Filters, TABLE_HEADER, filter_summary, format_item};
 use super::review::prompt_and_submit_review;
+
+const STATUSES: &[ProposalStatus] = &[
+    ProposalStatus::Submitted,
+    ProposalStatus::Accepted,
+    ProposalStatus::Confirmed,
+    ProposalStatus::Waitlisted,
+    ProposalStatus::Rejected,
+    ProposalStatus::Withdrawn,
+];
+
+const FORMATS: &[ProposalFormat] = &[
+    ProposalFormat::Lightning10,
+    ProposalFormat::Presentation20,
+    ProposalFormat::Presentation25,
+    ProposalFormat::Presentation40,
+    ProposalFormat::Presentation45,
+    ProposalFormat::Workshop120,
+    ProposalFormat::Workshop240,
+];
+
+const SORT_FIELDS: &[ProposalSortBy] = &[
+    ProposalSortBy::Created,
+    ProposalSortBy::Title,
+    ProposalSortBy::Speaker,
+    ProposalSortBy::Rating,
+    ProposalSortBy::Status,
+];
+
+const SORT_LABELS: &[&str] = &["Created", "Title", "Speaker", "Rating", "Status"];
 
 pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -> Result<()> {
     if all_proposals.is_empty() {
@@ -27,7 +55,7 @@ pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -
 
         if filtered.is_empty() {
             println!("No proposals match current filters. Press enter to adjust filters.");
-            super::interactive::show_filter_menu(&mut filters)?;
+            show_filter_menu(&mut filters)?;
             continue;
         }
 
@@ -37,7 +65,6 @@ pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -
 
         let default = (cursor + 1).min(items.len() - 1);
 
-        // Cap list height so the header/prompt stays visible, accounting for wrapping
         let max_rows = ui::max_visible_items(&items, 4);
 
         let selection = FuzzySelect::new()
@@ -69,10 +96,79 @@ pub async fn list_interactive(client: &TrpcClient, all_proposals: &[Proposal]) -
     Ok(())
 }
 
+pub fn apply_filters<'a>(proposals: &'a [Proposal], filters: &Filters) -> Vec<&'a Proposal> {
+    let mut filtered: Vec<&Proposal> = proposals
+        .iter()
+        .filter(|p| {
+            if !filters.statuses.is_empty() && !filters.statuses.contains(&p.status) {
+                return false;
+            }
+            if !filters.formats.is_empty() {
+                if let Some(f) = p.format {
+                    if !filters.formats.contains(&f) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+            if let Some(search) = &filters.search {
+                let search = search.to_lowercase();
+                if !p.title.to_lowercase().contains(&search)
+                    && !p
+                        .speakers
+                        .iter()
+                        .any(|s| s.name.to_lowercase().contains(&search))
+                {
+                    return false;
+                }
+            }
+            true
+        })
+        .collect();
+
+    #[allow(clippy::cast_precision_loss)]
+    filtered.sort_by(|a, b| {
+        let cmp = match filters.sort_by {
+            ProposalSortBy::Created => a.created_at.cmp(&b.created_at),
+            ProposalSortBy::Title => a.title.cmp(&b.title),
+            ProposalSortBy::Speaker => {
+                let sa = a.speakers.first().map_or("", |s| &s.name);
+                let sb = b.speakers.first().map_or("", |s| &s.name);
+                sa.cmp(sb)
+            }
+            ProposalSortBy::Rating => {
+                let ra = a
+                    .reviews
+                    .iter()
+                    .filter_map(|r| r.score.as_ref())
+                    .map(crate::types::ReviewScore::total)
+                    .sum::<f64>()
+                    / a.reviews.len().max(1) as f64;
+                let rb = b
+                    .reviews
+                    .iter()
+                    .filter_map(|r| r.score.as_ref())
+                    .map(crate::types::ReviewScore::total)
+                    .sum::<f64>()
+                    / b.reviews.len().max(1) as f64;
+                ra.partial_cmp(&rb).unwrap_or(std::cmp::Ordering::Equal)
+            }
+            ProposalSortBy::Status => a.status.to_string().cmp(&b.status.to_string()),
+        };
+
+        if filters.sort_order == SortOrder::Asc {
+            cmp
+        } else {
+            cmp.reverse()
+        }
+    });
+
+    filtered
+}
+
 pub fn show_filter_menu(filters: &mut Filters) -> Result<()> {
     use dialoguer::{MultiSelect, Select};
-
-    use super::filters::{FORMATS, SORT_FIELDS, SORT_LABELS, STATUSES};
 
     let term = console::Term::stderr();
     term.clear_screen()?;
@@ -108,7 +204,7 @@ pub fn show_filter_menu(filters: &mut Filters) -> Result<()> {
             }
         })
         .collect();
-    let format_labels: Vec<&str> = FORMATS.iter().map(|f| f.label()).collect();
+    let format_labels: Vec<&str> = FORMATS.iter().map(|f: &ProposalFormat| f.label()).collect();
 
     println!(
         "\n{}",
@@ -138,13 +234,20 @@ pub fn show_filter_menu(filters: &mut Filters) -> Result<()> {
     filters.sort_by = SORT_FIELDS[sort_idx];
 
     // Sort direction
-    let dir_default = usize::from(filters.sort_asc);
+    let dir_default = match filters.sort_order {
+        SortOrder::Desc => 0,
+        SortOrder::Asc => 1,
+    };
     println!("\n{}", "Sort direction:".bold());
     let dir_idx = Select::new()
         .items(["Descending ↓", "Ascending ↑"])
         .default(dir_default)
         .interact()?;
-    filters.sort_asc = dir_idx == 1;
+    filters.sort_order = if dir_idx == 0 {
+        SortOrder::Desc
+    } else {
+        SortOrder::Asc
+    };
 
     term.clear_screen()?;
     Ok(())
@@ -166,7 +269,6 @@ async fn show_detail_loop(
 
         let content = display::render_proposal_detail(&proposal);
 
-        // Build nav hints — scroll hints added dynamically by the pager
         let mut nav = vec![];
         if idx > 0 {
             nav.push("← prev");
@@ -174,14 +276,12 @@ async fn show_detail_loop(
         if idx + 1 < total {
             nav.push("→ next");
         }
-        // Use the longest possible hint string for viewport sizing
         let mut nav_full = nav.clone();
         nav_full.extend(["↑↓/jk scroll", "^u/^d half-page", "r review", "q/esc back"]);
         let footer_measure = nav_full.join(" · ");
 
         let mut pager = ui::Pager::new(&content, &footer_measure);
 
-        // Build the actual footer shown to the user
         if pager.is_scrollable() {
             nav.push("↑↓/jk scroll");
             nav.push("^u/^d half-page");

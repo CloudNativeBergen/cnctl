@@ -1,6 +1,5 @@
 mod args;
 mod display;
-mod filters;
 mod interactive;
 mod review;
 
@@ -18,8 +17,17 @@ use crate::ui;
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
-pub async fn fetch_all(client: &TrpcClient) -> Result<Vec<Proposal>> {
-    client.query("proposal.admin.list", None).await
+pub async fn fetch_all(client: &TrpcClient, args: &ListArgs) -> Result<Vec<Proposal>> {
+    let mut payload = args.clone();
+    if payload.unreviewed {
+        payload.review_status = Some(crate::types::ReviewStatus::Unreviewed);
+    }
+    client
+        .query(
+            "proposal.admin.list",
+            Some(&serde_json::to_value(&payload)?),
+        )
+        .await
 }
 
 pub async fn fetch_one(client: &TrpcClient, id: &str) -> Result<Proposal> {
@@ -39,13 +47,22 @@ pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
     let sp = ui::spinner("Fetching proposals…");
-    let all = fetch_all(&client).await?;
+    let all = fetch_all(&client, &args).await?;
     sp.finish_and_clear();
 
     if args.json {
-        list_json(&all, &args)
+        println!("{}", serde_json::to_string_pretty(&all)?);
+        Ok(())
     } else if args.has_cli_filters() || !console::Term::stdout().is_term() {
-        list_plain(&all, &args);
+        if all.is_empty() {
+            println!("No proposals match the given filters.");
+            return Ok(());
+        }
+
+        println!("{}", display::TABLE_HEADER);
+        for p in &all {
+            println!("{}", display::format_item(p));
+        }
         Ok(())
     } else {
         interactive::list_interactive(&client, &all).await
@@ -107,26 +124,27 @@ pub async fn review(args: ReviewArgs) -> Result<()> {
     Ok(())
 }
 
-// ── Output modes ─────────────────────────────────────────────────────────────
+pub async fn next_review() -> Result<()> {
+    let client = require_client()?;
+    let reviewer_name = crate::config::load().ok().and_then(|c| c.name);
 
-fn list_json(all: &[Proposal], args: &ListArgs) -> Result<()> {
-    let filters = filters::Filters::from(args);
-    let filtered = filters::apply_filters(all, &filters);
-    println!("{}", serde_json::to_string_pretty(&filtered)?);
+    let sp = ui::spinner("Fetching next unreviewed proposal…");
+    let input = serde_json::json!({});
+    let proposal_opt: Option<Proposal> = client
+        .query("proposal.admin.nextUnreviewed", Some(&input))
+        .await?;
+    sp.finish_and_clear();
+
+    match proposal_opt {
+        Some(proposal) => {
+            crate::display::print_proposal_detail(&proposal);
+            println!();
+            review::prompt_and_submit_review(&client, &proposal, reviewer_name.as_deref()).await?;
+        }
+        None => {
+            println!("No unreviewed proposals found. Great job!");
+        }
+    }
+
     Ok(())
-}
-
-fn list_plain(all: &[Proposal], args: &ListArgs) {
-    let filters = filters::Filters::from(args);
-    let filtered = filters::apply_filters(all, &filters);
-
-    if filtered.is_empty() {
-        println!("No proposals match the given filters.");
-        return;
-    }
-
-    println!("{}", display::TABLE_HEADER);
-    for p in &filtered {
-        println!("{}", display::format_item(p));
-    }
 }

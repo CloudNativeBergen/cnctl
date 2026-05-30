@@ -5,6 +5,14 @@ use serde::{Deserialize, Serialize};
 
 use super::null_to_vec;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum SponsorView {
+    #[default]
+    Pipeline,
+    Invoice,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
 #[serde(rename_all = "kebab-case")]
 pub enum SponsorStatus {

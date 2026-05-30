@@ -5,7 +5,35 @@ use serde::{Deserialize, Serialize};
 
 use super::null_to_vec;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ProposalSortBy {
+    #[default]
+    Created,
+    Title,
+    Status,
+    Speaker,
+    Rating,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum SortOrder {
+    #[default]
+    Asc,
+    Desc,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum, Default)]
+#[serde(rename_all = "camelCase")]
+pub enum ReviewStatus {
+    #[default]
+    All,
+    Reviewed,
+    Unreviewed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
 #[serde(rename_all = "camelCase")]
 pub enum ProposalStatus {
     Submitted,

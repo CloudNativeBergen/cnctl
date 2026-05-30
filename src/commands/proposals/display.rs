@@ -1,9 +1,16 @@
-use crate::types::Proposal;
+use crate::types::{Proposal, ProposalFormat, ProposalSortBy, ProposalStatus, SortOrder};
 use crate::{display, ui};
 
-use super::filters::Filters;
-
 pub const TABLE_HEADER: &str = "STATUS       FORMAT           TITLE · SPEAKER";
+
+#[derive(Debug, Clone, Default)]
+pub struct Filters {
+    pub search: Option<String>,
+    pub statuses: Vec<ProposalStatus>,
+    pub formats: Vec<ProposalFormat>,
+    pub sort_by: ProposalSortBy,
+    pub sort_order: SortOrder,
+}
 
 pub fn format_item(p: &Proposal) -> String {
     let speakers: Vec<&str> = p.speakers.iter().map(|s| s.name.as_str()).collect();
@@ -43,13 +50,17 @@ pub fn filter_summary(filters: &Filters) -> String {
         filters
             .formats
             .iter()
-            .map(|f| f.label())
+            .map(|f: &ProposalFormat| f.label())
             .collect::<Vec<_>>()
             .join(", ")
     };
-    let dir = if filters.sort_asc { "↑" } else { "↓" };
+    let dir = if filters.sort_order == SortOrder::Asc {
+        "↑"
+    } else {
+        "↓"
+    };
     format!(
-        "status: {status_part} | format: {format_part} | sort: {}{dir}",
+        "status: {status_part} | format: {format_part} | sort: {:?}{dir}",
         filters.sort_by
     )
 }

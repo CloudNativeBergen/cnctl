@@ -9,13 +9,13 @@ use anyhow::{Context, Result};
 use super::require_client;
 use crate::client::TrpcClient;
 use crate::display;
-use crate::types::{SponsorForConference, SponsorStatus};
+use crate::types::SponsorForConference;
 
 // ── API helpers ──────────────────────────────────────────────────────────────
 
-pub async fn fetch_all(client: &TrpcClient) -> Result<Vec<SponsorForConference>> {
+pub async fn fetch_all(client: &TrpcClient, args: &ListArgs) -> Result<Vec<SponsorForConference>> {
     let sponsors: Vec<SponsorForConference> = client
-        .query("sponsor.crm.list", Some(&serde_json::json!({})))
+        .query("sponsor.crm.list", Some(&serde_json::to_value(args)?))
         .await?;
     Ok(sponsors)
 }
@@ -37,21 +37,26 @@ pub async fn fetch_activities(
 
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
-    let all = fetch_all(&client).await?;
+    let all = fetch_all(&client, &args).await?;
 
     if args.json {
-        let filtered = filter_by_status(&all, args.status.as_deref());
-        println!("{}", serde_json::to_string_pretty(&filtered)?);
-    } else if args.status.is_some() || !console::Term::stdout().is_term() {
-        let filtered = filter_by_status(&all, args.status.as_deref());
-        if filtered.is_empty() {
+        println!("{}", serde_json::to_string_pretty(&all)?);
+    } else if args.search.is_some()
+        || args.status.is_some()
+        || args.assigned_to.is_some()
+        || args.unassigned
+        || args.tags.is_some()
+        || args.tiers.is_some()
+        || !console::Term::stdout().is_term()
+    {
+        if all.is_empty() {
             println!("No sponsors match the given filters.");
         } else {
             println!("{}", display::SPONSOR_TABLE_HEADER);
-            for s in &filtered {
+            for s in &all {
                 println!("{}", display::format_sponsor_row(s));
             }
-            println!("\n{} sponsors", filtered.len());
+            println!("\n{} sponsors", all.len());
         }
     } else {
         interactive::list_interactive(&client, &all)?;
@@ -61,7 +66,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
 pub async fn get(id: &str) -> Result<()> {
     let client = require_client()?;
-    let sponsors = fetch_all(&client).await?;
+    let sponsors = fetch_all(&client, &ListArgs::default()).await?;
 
     let mut sponsor = sponsors
         .iter()
@@ -79,7 +84,7 @@ pub async fn get(id: &str) -> Result<()> {
 
 pub async fn history(id: &str, json: bool) -> Result<()> {
     let client = require_client()?;
-    let sponsors = fetch_all(&client).await?;
+    let sponsors = fetch_all(&client, &ListArgs::default()).await?;
 
     let mut sponsor = sponsors
         .iter()
@@ -165,19 +170,4 @@ pub async fn create(args: CreateArgs) -> Result<()> {
 
     println!("Sponsor '{}' added to CRM as {}.", args.name, args.status);
     Ok(())
-}
-
-// ── Internal helpers ─────────────────────────────────────────────────────────
-
-fn filter_by_status<'a>(
-    sponsors: &'a [SponsorForConference],
-    statuses: Option<&[SponsorStatus]>,
-) -> Vec<&'a SponsorForConference> {
-    match statuses {
-        Some(s) if !s.is_empty() => sponsors
-            .iter()
-            .filter(|sp| s.contains(&sp.status))
-            .collect(),
-        _ => sponsors.iter().collect(),
-    }
 }
