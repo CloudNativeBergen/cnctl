@@ -4,6 +4,8 @@ use crate::client::TrpcClient;
 use crate::config;
 
 pub mod admin_status;
+pub mod agents;
+pub mod featured;
 pub mod login;
 pub mod logout;
 pub mod proposals;

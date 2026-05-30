@@ -3,7 +3,11 @@ use clap::{Parser, Subcommand};
 use cnctl::commands;
 
 #[derive(Parser)]
-#[command(name = "cnctl", about = "CLI for Cloud Native Days Norway", version)]
+#[command(
+    name = "cnctl",
+    about = "CLI for Cloud Native Days Norway — Optimized for humans and LLM agents.",
+    version
+)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -20,6 +24,8 @@ enum Command {
     /// Organizer administration commands
     #[command(subcommand)]
     Admin(AdminCommand),
+    /// Manage conference-specific agent instructions
+    Agents(commands::agents::AgentArgs),
 }
 
 #[derive(Subcommand)]
@@ -30,6 +36,8 @@ enum AdminCommand {
     /// Manage sponsor pipeline
     #[command(subcommand)]
     Sponsors(SponsorCommand),
+    /// Manage featured content on the front page
+    Featured(commands::featured::FeaturedArgs),
     /// Show conference status summary (sponsors, proposals, tickets, targets)
     Status {
         /// Output as JSON
@@ -53,6 +61,8 @@ enum ProposalCommand {
     },
     /// Submit or update a review for a proposal
     Review(commands::proposals::ReviewArgs),
+    /// Find the next unreviewed proposal
+    NextReview,
 }
 
 #[derive(Subcommand)]
@@ -96,6 +106,7 @@ async fn main() -> Result<()> {
                 ProposalCommand::List(args) => commands::proposals::list(args).await,
                 ProposalCommand::Get { id, json } => commands::proposals::get(&id, json).await,
                 ProposalCommand::Review(args) => commands::proposals::review(args).await,
+                ProposalCommand::NextReview => commands::proposals::next_review().await,
             },
             AdminCommand::Sponsors(cmd) => match cmd {
                 SponsorCommand::List(args) => commands::sponsors::list(args).await,
@@ -107,7 +118,9 @@ async fn main() -> Result<()> {
                 SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
                 SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
             },
+            AdminCommand::Featured(args) => commands::featured::run(args).await,
             AdminCommand::Status { json } => commands::admin_status::run(json).await,
         },
+        Command::Agents(args) => commands::agents::run(args).await,
     }
 }
