@@ -46,7 +46,45 @@ fn render_status(summary: &ConferenceStatusSummary) -> String {
         render_errors(&mut buf, &summary.errors);
     }
 
+    render_hints(&mut buf, summary);
+
     buf
+}
+
+fn render_hints(buf: &mut String, summary: &ConferenceStatusSummary) {
+    writeln!(buf).unwrap();
+    writeln!(buf, "{}", "💡 Next Steps for Agents:".dimmed()).unwrap();
+
+    if let Some(pr) = &summary.proposals
+        && pr.submitted > 0
+    {
+        writeln!(
+            buf,
+            "{}",
+            "• There are unreviewed proposals. Use `cnctl admin proposals list` to start reviewing."
+                .dimmed()
+        )
+        .unwrap();
+    }
+
+    if let Some(sp) = &summary.sponsors
+        && sp.active_deals > 0
+    {
+        writeln!(
+            buf,
+            "{}",
+            "• You have active sponsor deals. Use `cnctl admin sponsors list` to check progress."
+                .dimmed()
+        )
+        .unwrap();
+    }
+
+    writeln!(
+        buf,
+        "{}",
+        "• Need more context? Run `cnctl agents get` for conference rules and goals.".dimmed()
+    )
+    .unwrap();
 }
 
 fn render_sponsors(buf: &mut String, sp: &crate::types::SponsorPipeline) {

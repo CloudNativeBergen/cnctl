@@ -142,6 +142,12 @@ pub fn print_sponsor_history(sponsor: &SponsorForConference) {
     println!("{} - History", name.bold());
     println!("ID: {}\n", sponsor.id);
 
+    println!(
+        "{}",
+        "Hint: Log new interactions with `cnctl admin sponsors note <ID> \"...\"`".dimmed()
+    );
+    println!();
+
     if sponsor.activities.is_empty() {
         println!("No activities recorded yet.");
         return;
