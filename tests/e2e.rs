@@ -367,6 +367,99 @@ async fn sponsors_list_stale_e2e() {
     assert!(result.is_ok());
 }
 
+#[tokio::test]
+async fn sponsors_update_contract_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.updateContractStatus"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::update_contract("sfc-111", "signed").await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn sponsors_send_contract_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.sendContract"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::send_contract("sfc-111", None).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn sponsors_signature_status_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.checkSignatureStatus"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"contractStatus": "signed"}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::signature_status("sfc-111").await;
+    assert!(result.is_ok());
+}
+
 // ─── Review e2e tests ────────────────────────────────────────────────────────
 
 fn review_response_json() -> serde_json::Value {
