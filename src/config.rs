@@ -13,6 +13,10 @@ pub struct Config {
     pub name: Option<String>,
 }
 
+pub fn config_path() -> Result<PathBuf> {
+    default_path()
+}
+
 fn default_path() -> Result<PathBuf> {
     if let Ok(path) = std::env::var("CNCTL_CONFIG") {
         return Ok(PathBuf::from(path));
