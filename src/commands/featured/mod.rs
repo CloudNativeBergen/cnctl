@@ -10,9 +10,9 @@ pub async fn run(args: FeaturedArgs) -> Result<()> {
     match args.command {
         FeaturedCommand::List { json } => list(json).await,
         FeaturedCommand::AddSpeaker { id } => add_speaker(&id).await,
-        FeaturedCommand::RemoveSpeaker { id } => remove_speaker(&id).await,
+        FeaturedCommand::RemoveSpeaker { id, yes } => remove_speaker(&id, yes).await,
         FeaturedCommand::AddTalk { id } => add_talk(&id).await,
-        FeaturedCommand::RemoveTalk { id } => remove_talk(&id).await,
+        FeaturedCommand::RemoveTalk { id, yes } => remove_talk(&id, yes).await,
     }
 }
 
@@ -70,7 +70,18 @@ async fn add_speaker(id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn remove_speaker(id: &str) -> Result<()> {
+async fn remove_speaker(id: &str, yes: bool) -> Result<()> {
+    if !yes && console::Term::stdout().is_term() {
+        let confirmed = dialoguer::Confirm::new()
+            .with_prompt(format!("Remove speaker {id} from front page?"))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            anyhow::bail!("Removal cancelled.");
+        }
+    }
+
     let client = require_client()?;
     client
         .mutate::<serde_json::Value>(
@@ -94,7 +105,18 @@ async fn add_talk(id: &str) -> Result<()> {
     Ok(())
 }
 
-async fn remove_talk(id: &str) -> Result<()> {
+async fn remove_talk(id: &str, yes: bool) -> Result<()> {
+    if !yes && console::Term::stdout().is_term() {
+        let confirmed = dialoguer::Confirm::new()
+            .with_prompt(format!("Remove talk {id} from front page?"))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            anyhow::bail!("Removal cancelled.");
+        }
+    }
+
     let client = require_client()?;
     client
         .mutate::<serde_json::Value>(

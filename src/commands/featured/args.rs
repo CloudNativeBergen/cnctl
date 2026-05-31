@@ -22,6 +22,10 @@ pub enum FeaturedCommand {
     RemoveSpeaker {
         /// Speaker ID
         id: String,
+
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Add a featured talk
     AddTalk {
@@ -32,5 +36,9 @@ pub enum FeaturedCommand {
     RemoveTalk {
         /// Proposal ID
         id: String,
+
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
 }

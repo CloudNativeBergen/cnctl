@@ -18,7 +18,11 @@ enum Command {
     /// Authenticate via browser and select a conference
     Login,
     /// Clear stored credentials
-    Logout,
+    Logout {
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
+    },
     /// Show current authentication and conference context
     Status,
     /// Organizer administration commands
@@ -102,7 +106,7 @@ async fn main() -> Result<()> {
         Command::Login => tokio::task::spawn_blocking(commands::login::run)
             .await
             .context("Login task panicked")?,
-        Command::Logout => commands::logout::run(),
+        Command::Logout { yes } => commands::logout::run(yes),
         Command::Status => commands::status::run(),
         Command::Admin(admin) => match admin {
             AdminCommand::Proposals(cmd) => match cmd {

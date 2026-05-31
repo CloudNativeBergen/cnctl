@@ -28,6 +28,10 @@ pub enum SpeakerCommand {
     Delete {
         /// Speaker ID
         id: String,
+
+        /// Skip confirmation prompt
+        #[arg(long, short = 'y')]
+        yes: bool,
     },
     /// Send a broadcast email to ALL speakers (use with caution!)
     Broadcast {

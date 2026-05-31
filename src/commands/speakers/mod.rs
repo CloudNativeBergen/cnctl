@@ -13,7 +13,7 @@ pub async fn run(cmd: SpeakerCommand) -> Result<()> {
         SpeakerCommand::List(args) => list(args).await,
         SpeakerCommand::Get { id, json } => get(&id, json).await,
         SpeakerCommand::Add(create_args) => create(create_args).await,
-        SpeakerCommand::Delete { id } => delete(&id).await,
+        SpeakerCommand::Delete { id, yes } => delete(&id, yes).await,
         SpeakerCommand::Broadcast { subject, message } => broadcast(&subject, &message).await,
         SpeakerCommand::SyncAudience => sync_audience().await,
     }
@@ -155,7 +155,18 @@ async fn create(args: CreateArgs) -> Result<()> {
     Ok(())
 }
 
-async fn delete(id: &str) -> Result<()> {
+async fn delete(id: &str, yes: bool) -> Result<()> {
+    if !yes && console::Term::stdout().is_term() {
+        let confirmed = dialoguer::Confirm::new()
+            .with_prompt(format!("Are you sure you want to delete speaker {id}?"))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            anyhow::bail!("Deletion cancelled.");
+        }
+    }
+
     let client = require_client()?;
     client
         .mutate::<serde_json::Value>("speaker.admin.delete", &serde_json::json!({ "id": id }))
