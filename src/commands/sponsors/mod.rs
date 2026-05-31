@@ -2,7 +2,7 @@ mod args;
 pub mod email;
 mod interactive;
 
-pub use args::{CreateArgs, EmailArgs, ListArgs, NoteArgs};
+pub use args::{CreateArgs, EmailArgs, ListArgs, NoteArgs, UpdateArgs};
 
 use anyhow::{Context, Result};
 
@@ -18,6 +18,16 @@ pub async fn fetch_all(client: &TrpcClient, args: &ListArgs) -> Result<Vec<Spons
         .query("sponsor.crm.list", Some(&serde_json::to_value(args)?))
         .await?;
     Ok(sponsors)
+}
+
+pub async fn fetch_one(client: &TrpcClient, id: &str) -> Result<SponsorForConference> {
+    let sponsor: SponsorForConference = client
+        .query(
+            "sponsor.crm.getById",
+            Some(&serde_json::json!({ "id": id })),
+        )
+        .await?;
+    Ok(sponsor)
 }
 
 pub async fn fetch_activities(
@@ -50,6 +60,9 @@ pub async fn list(args: ListArgs) -> Result<()> {
         || args.sort_by.is_some()
         || args.sort_order.is_some()
         || args.stale_days.is_some()
+        || args.due
+        || args.has_follow_up
+        || args.has_contact
         || !console::Term::stdout().is_term()
     {
         if all.is_empty() {
@@ -69,35 +82,30 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
 pub async fn get(id: &str) -> Result<()> {
     let client = require_client()?;
-    let sponsors = fetch_all(&client, &ListArgs::default()).await?;
-
-    let mut sponsor = sponsors
-        .iter()
-        .find(|s| s.id == id)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("Sponsor not found: {id}"))?;
-
-    if let Ok(activities) = fetch_activities(&client, id).await {
-        sponsor.activities = activities;
-    }
-
+    let sponsor = fetch_one(&client, id).await?;
     display::print_sponsor_detail(&sponsor);
+    Ok(())
+}
+
+pub async fn update(args: UpdateArgs) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.update",
+            &serde_json::json!({
+                "id": args.id,
+                "data": args,
+            }),
+        )
+        .await?;
+
+    println!("Sponsor {} updated successfully.", args.id);
     Ok(())
 }
 
 pub async fn history(id: &str, json: bool) -> Result<()> {
     let client = require_client()?;
-    let sponsors = fetch_all(&client, &ListArgs::default()).await?;
-
-    let mut sponsor = sponsors
-        .iter()
-        .find(|s| s.id == id)
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("Sponsor not found: {id}"))?;
-
-    if let Ok(activities) = fetch_activities(&client, id).await {
-        sponsor.activities = activities;
-    }
+    let sponsor = fetch_one(&client, id).await?;
 
     if json {
         println!("{}", serde_json::to_string_pretty(&sponsor.activities)?);

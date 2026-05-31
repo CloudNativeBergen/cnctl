@@ -46,6 +46,7 @@ pub fn format_sponsor_row(s: &SponsorForConference) -> String {
 }
 
 /// Render sponsor details into a `String` (for scrollable views, etc.).
+#[allow(clippy::too_many_lines)]
 pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
     let mut buf = String::new();
     let name = sponsor
@@ -75,6 +76,19 @@ pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
     if let Some(website) = sponsor.sponsor.as_ref().and_then(|s| s.website.as_deref()) {
         writeln!(buf, "Website:         {website}").unwrap();
     }
+    if let Some(linkedin) = sponsor
+        .sponsor
+        .as_ref()
+        .and_then(|s| s.linkedin_url.as_deref())
+    {
+        writeln!(buf, "LinkedIn (Org):  {linkedin}").unwrap();
+    }
+    if let Some(follow_up) = &sponsor.next_follow_up_at {
+        writeln!(buf, "Next Follow-up:  {}", follow_up.yellow()).unwrap();
+    }
+    if let Some(outreach) = sponsor.outreach_count {
+        writeln!(buf, "Outreach Count:  {outreach}").unwrap();
+    }
 
     if !sponsor.contact_persons.is_empty() {
         writeln!(buf, "\nContacts:").unwrap();
@@ -86,7 +100,17 @@ pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
             } else {
                 ""
             };
-            writeln!(buf, "  - {} <{}> {}{}", c.name, email, role, primary).unwrap();
+            let linkedin = c
+                .linkedin_url
+                .as_ref()
+                .map(|url| format!(" | LinkedIn: {url}"))
+                .unwrap_or_default();
+            writeln!(
+                buf,
+                "  - {} <{}> {}{}{}",
+                c.name, email, role, primary, linkedin
+            )
+            .unwrap();
         }
     }
 

@@ -11,6 +11,7 @@ pub enum SponsorView {
     #[default]
     Pipeline,
     Invoice,
+    Contract,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
@@ -134,6 +135,7 @@ pub enum SponsorSortBy {
     Stale,
     Name,
     CreatedAt,
+    FollowUp,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -176,6 +178,12 @@ pub struct SponsorForConference {
     pub last_activity: Option<SponsorActivitySummary>,
     #[serde(default)]
     pub activity_count: Option<u32>,
+    #[serde(default)]
+    pub next_follow_up_at: Option<String>,
+    #[serde(default)]
+    pub outreach_count: Option<u32>,
+    #[serde(default)]
+    pub contact_initiated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -196,6 +204,8 @@ pub struct SponsorRef {
     pub name: String,
     #[serde(default)]
     pub website: Option<String>,
+    #[serde(default)]
+    pub linkedin_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -218,6 +228,8 @@ pub struct ContactPerson {
     pub role: Option<String>,
     #[serde(default)]
     pub is_primary: Option<bool>,
+    #[serde(default)]
+    pub linkedin_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

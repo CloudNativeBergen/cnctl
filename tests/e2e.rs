@@ -347,12 +347,14 @@ async fn sponsors_sync_audience_e2e() {
 }
 
 #[tokio::test]
-async fn sponsors_list_stale_e2e() {
+async fn sponsors_list_filters_e2e() {
     let server = MockServer::start().await;
 
     Mock::given(method("GET"))
         .and(path("/api/trpc/sponsor.crm.list"))
-        .and(query_param_contains("input", "staleDays\":14"))
+        .and(query_param_contains("input", "followUpDue\":true"))
+        .and(query_param_contains("input", "hasContactInfo\":true"))
+        .and(query_param_contains("input", "staleDays\":30"))
         .respond_with(ResponseTemplate::new(200).set_body_json(sponsor_list_json()))
         .expect(1)
         .mount(&server)
@@ -360,10 +362,51 @@ async fn sponsors_list_stale_e2e() {
 
     let client = TrpcClient::new(&server.uri(), "test-token");
     let args = sponsors::ListArgs {
-        stale_days: Some(14),
+        due: true,
+        has_contact: true,
+        stale_days: Some(30),
         ..Default::default()
     };
     let result = sponsors::fetch_all(&client, &args).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn sponsors_update_fields_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.update"))
+        .and(body_string_contains("nextFollowUpAt"))
+        .and(body_string_contains("linkedinUrl"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let args = sponsors::UpdateArgs {
+        id: "sfc-123".to_string(),
+        next_follow_up: Some("2026-12-31".to_string()),
+        linkedin_url: Some("https://linkedin.com/test".to_string()),
+        ..Default::default()
+    };
+    let result = sponsors::update(args).await;
     assert!(result.is_ok());
 }
 
@@ -633,7 +676,7 @@ async fn full_pipeline_sponsors_e2e() {
 async fn sponsors_history_e2e() {
     let server = MockServer::start().await;
 
-    let history_json = serde_json::json!({
+    let _history_json = serde_json::json!({
         "result": {
             "data": [
                 {
@@ -655,8 +698,25 @@ async fn sponsors_history_e2e() {
     });
 
     Mock::given(method("GET"))
-        .and(path("/api/trpc/sponsor.crm.list"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(history_json))
+        .and(path("/api/trpc/sponsor.crm.getById"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {
+                "data": {
+                    "_id": "sfc-111",
+                    "status": "closed-won",
+                    "sponsor": {"_id": "sp-a", "name": "Acme Corp"},
+                    "activities": [
+                        {
+                            "_id": "act-1",
+                            "activityType": "note",
+                            "description": "Followed up on booth size",
+                            "createdAt": "2026-05-29T12:00:00Z",
+                            "createdBy": {"_id": "org-1", "name": "Hans"}
+                        }
+                    ]
+                }
+            }
+        })))
         .mount(&server)
         .await;
 

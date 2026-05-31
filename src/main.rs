@@ -106,6 +106,8 @@ enum SponsorCommand {
     List(commands::sponsors::ListArgs),
     /// Add a new sponsor to the CRM
     Add(commands::sponsors::CreateArgs),
+    /// Update sponsor details
+    Update(commands::sponsors::UpdateArgs),
     /// Show sponsor details
     Get {
         /// Sponsor-for-conference ID
@@ -194,6 +196,7 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
         AdminCommand::Sponsors(cmd) => match cmd {
             SponsorCommand::List(args) => commands::sponsors::list(args).await,
             SponsorCommand::Add(args) => commands::sponsors::create(args).await,
+            SponsorCommand::Update(args) => commands::sponsors::update(args).await,
             SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
             SponsorCommand::History { id, json } => commands::sponsors::history(&id, json).await,
             SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
