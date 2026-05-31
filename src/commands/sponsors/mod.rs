@@ -131,7 +131,7 @@ pub async fn move_stage(id: &str, stage: crate::types::SponsorStatus) -> Result<
             "sponsor.crm.moveStage",
             &serde_json::json!({
                 "id": id,
-                "status": stage,
+                "newStatus": stage,
             }),
         )
         .await?;
