@@ -126,6 +126,16 @@ pub struct SponsorActivity {
     pub created_by: Option<super::SpeakerRef>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
+#[serde(rename_all = "camelCase")]
+pub enum SponsorSortBy {
+    LastActivity,
+    Value,
+    Stale,
+    Name,
+    CreatedAt,
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SponsorForConference {
@@ -162,6 +172,20 @@ pub struct SponsorForConference {
     pub invoice_paid_at: Option<String>,
     #[serde(default, deserialize_with = "null_to_vec")]
     pub activities: Vec<SponsorActivity>,
+    #[serde(default)]
+    pub last_activity: Option<SponsorActivitySummary>,
+    #[serde(default)]
+    pub activity_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SponsorActivitySummary {
+    #[serde(rename = "activityType")]
+    pub kind: ActivityType,
+    pub description: String,
+    pub created_at: String,
+    pub created_by: Option<super::SpeakerRef>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

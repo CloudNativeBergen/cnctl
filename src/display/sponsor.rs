@@ -19,7 +19,8 @@ pub fn print_sponsor_list(sponsors: &[SponsorForConference]) {
     println!("\n{} sponsors", sponsors.len());
 }
 
-pub const SPONSOR_TABLE_HEADER: &str = "SPONSOR              STATUS         CONTRACT          TIER";
+pub const SPONSOR_TABLE_HEADER: &str =
+    "SPONSOR              STATUS         LAST ACT        CONTRACT         TIER";
 
 pub fn format_sponsor_row(s: &SponsorForConference) -> String {
     let name = s.sponsor.as_ref().map_or("Unknown", |sp| sp.name.as_str());
@@ -30,10 +31,15 @@ pub fn format_sponsor_row(s: &SponsorForConference) -> String {
     let status_padded = format!("{:<14}", s.status);
     let status_colored = colorize_status_str(&status_padded, s.status);
 
+    let last_act = s.last_activity.as_ref().map_or("-".to_string(), |a| {
+        format!("{:.10}", a.created_at) // YYYY-MM-DD
+    });
+
     format!(
-        "{:<20} {} {:<17} {}",
+        "{:<20} {} {:<15} {:<16} {}",
         truncate(name, 18),
         status_colored,
+        last_act.dimmed(),
         contract,
         tier
     )
@@ -106,8 +112,32 @@ pub fn render_sponsor_detail(sponsor: &SponsorForConference) -> String {
         writeln!(buf, "\nTags: {}", sponsor.tags.join(", ")).unwrap();
     }
 
+    if let Some(count) = sponsor.activity_count {
+        writeln!(buf, "Total activities: {count}").unwrap();
+    }
+
+    if let Some(last) = &sponsor.last_activity {
+        writeln!(buf, "\nLast Activity:").unwrap();
+        let date = &last.created_at[..10];
+        let type_label = format!("[{}]", last.kind).to_uppercase();
+        let author = last
+            .created_by
+            .as_ref()
+            .map(|a| format!(" by {}", a.name))
+            .unwrap_or_default();
+        writeln!(
+            buf,
+            "  {} {} {}{}",
+            date.dimmed(),
+            type_label.yellow(),
+            last.description,
+            author.dimmed()
+        )
+        .unwrap();
+    }
+
     if !sponsor.activities.is_empty() {
-        writeln!(buf, "\nRecent Activity:").unwrap();
+        writeln!(buf, "\nRecent History:").unwrap();
         for activity in sponsor.activities.iter().take(5) {
             let date = &activity.created_at[..10];
             let type_label = format!("[{}]", activity.activity_type).to_uppercase();

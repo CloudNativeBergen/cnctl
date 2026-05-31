@@ -47,6 +47,9 @@ pub async fn list(args: ListArgs) -> Result<()> {
         || args.unassigned
         || args.tags.is_some()
         || args.tiers.is_some()
+        || args.sort_by.is_some()
+        || args.sort_order.is_some()
+        || args.stale_days.is_some()
         || !console::Term::stdout().is_term()
     {
         if all.is_empty() {
@@ -118,6 +121,98 @@ pub async fn add_note(args: NoteArgs) -> Result<()> {
         .await?;
 
     println!("Activity logged successfully.");
+    Ok(())
+}
+
+pub async fn move_stage(id: &str, stage: crate::types::SponsorStatus) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.moveStage",
+            &serde_json::json!({
+                "id": id,
+                "status": stage,
+            }),
+        )
+        .await?;
+
+    println!("Sponsor moved to stage {stage}.");
+    Ok(())
+}
+
+pub async fn update_invoice(id: &str, status: &str) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.updateInvoiceStatus",
+            &serde_json::json!({
+                "id": id,
+                "status": status,
+            }),
+        )
+        .await?;
+
+    println!("Invoice status updated to {status}.");
+    Ok(())
+}
+
+pub async fn update_contract(id: &str, status: &str) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.updateContractStatus",
+            &serde_json::json!({
+                "id": id,
+                "status": status,
+            }),
+        )
+        .await?;
+
+    println!("Contract status updated to {status}.");
+    Ok(())
+}
+
+pub async fn send_contract(id: &str, template: Option<&str>) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.sendContract",
+            &serde_json::json!({
+                "id": id,
+                "templateSlug": template,
+            }),
+        )
+        .await?;
+
+    println!("Contract generated and sent successfully.");
+    Ok(())
+}
+
+pub async fn signature_status(id: &str) -> Result<()> {
+    let client = require_client()?;
+    let res: serde_json::Value = client
+        .mutate(
+            "sponsor.crm.checkSignatureStatus",
+            &serde_json::json!({ "id": id }),
+        )
+        .await?;
+
+    let status = res
+        .get("contractStatus")
+        .and_then(|s| s.as_str())
+        .unwrap_or("unknown");
+
+    println!("Signature status synced. Current contract status: {status}");
+    Ok(())
+}
+
+pub async fn sync_audience() -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>("sponsor.crm.syncAudience", &serde_json::json!({}))
+        .await?;
+
+    println!("Sponsor email audience synced successfully.");
     Ok(())
 }
 

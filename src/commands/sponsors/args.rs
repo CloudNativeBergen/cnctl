@@ -1,7 +1,7 @@
 use clap::Args;
 use serde::Serialize;
 
-use crate::types::{SponsorStatus, SponsorView};
+use crate::types::{SortOrder, SponsorSortBy, SponsorStatus, SponsorView};
 
 #[derive(Args, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -44,6 +44,21 @@ pub struct ListArgs {
     #[arg(long, value_delimiter = ',')]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tiers: Option<Vec<String>>,
+
+    /// Sort by field
+    #[arg(long = "sort", value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_by: Option<SponsorSortBy>,
+
+    /// Sort order
+    #[arg(long = "order", value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sort_order: Option<SortOrder>,
+
+    /// Filter by staleness (inactive for N+ days)
+    #[arg(long = "stale")]
+    #[serde(rename = "staleDays", skip_serializing_if = "Option::is_none")]
+    pub stale_days: Option<u32>,
 
     /// Output as JSON
     #[arg(long)]

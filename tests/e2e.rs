@@ -246,6 +246,127 @@ async fn sponsors_get_not_found_e2e() {
     assert!(!found, "Should not find nonexistent sponsor");
 }
 
+#[tokio::test]
+async fn sponsors_move_stage_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.moveStage"))
+        .and(body_string_contains("contacted"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    // Set up config for require_client()
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::move_stage("sfc-111", cnctl::types::SponsorStatus::Contacted).await;
+    assert!(result.is_ok(), "move_stage failed: {result:?}");
+}
+
+#[tokio::test]
+async fn sponsors_update_invoice_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.updateInvoiceStatus"))
+        .and(body_string_contains("sent"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    // Set up config for require_client()
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::update_invoice("sfc-111", "sent").await;
+    assert!(result.is_ok(), "update_invoice failed: {result:?}");
+}
+
+#[tokio::test]
+async fn sponsors_sync_audience_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.syncAudience"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"syncedCount": 10}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let _client = TrpcClient::new(&server.uri(), "test-token");
+    // We need to bypass require_client or mock it.
+    // Since sync_audience calls require_client(), we use the same pattern as sponsors_add_note_e2e.
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::sync_audience().await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn sponsors_list_stale_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/trpc/sponsor.crm.list"))
+        .and(query_param_contains("input", "staleDays\":14"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(sponsor_list_json()))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let client = TrpcClient::new(&server.uri(), "test-token");
+    let args = sponsors::ListArgs {
+        stale_days: Some(14),
+        ..Default::default()
+    };
+    let result = sponsors::fetch_all(&client, &args).await;
+    assert!(result.is_ok());
+}
+
 // ─── Review e2e tests ────────────────────────────────────────────────────────
 
 fn review_response_json() -> serde_json::Value {

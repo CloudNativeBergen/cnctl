@@ -124,6 +124,118 @@ enum SponsorCommand {
     Note(commands::sponsors::NoteArgs),
     /// Send an email to a sponsor using templates
     Email(commands::sponsors::EmailArgs),
+    /// Move a sponsor to a different pipeline stage
+    MoveStage {
+        /// Sponsor-for-conference ID
+        id: String,
+        /// New stage
+        #[arg(value_enum)]
+        stage: cnctl::types::SponsorStatus,
+    },
+    /// Update invoice status
+    UpdateInvoice {
+        /// Sponsor-for-conference ID
+        id: String,
+        /// New invoice status
+        status: String,
+    },
+    /// Update contract status
+    UpdateContract {
+        /// Sponsor-for-conference ID
+        id: String,
+        /// New contract status
+        status: String,
+    },
+    /// Generate and send contract for signing
+    SendContract {
+        /// Sponsor-for-conference ID
+        id: String,
+        /// Template slug (optional)
+        #[arg(long)]
+        template: Option<String>,
+    },
+    /// Poll and sync signature status from provider
+    SignatureStatus {
+        /// Sponsor-for-conference ID
+        id: String,
+    },
+    /// Sync confirmed sponsors with newsletter audience
+    SyncAudience,
+}
+
+async fn run_command(command: Command) -> Result<()> {
+    match command {
+        Command::Login => commands::login::run(),
+        Command::Logout { yes } => commands::logout::run(yes),
+        Command::Status => commands::status::run(),
+        Command::AgentInfo { json } => commands::agent_discovery::run_agent_info(json).await,
+        Command::HelpJson => commands::agent_discovery::run_help_json(&Cli::command()),
+        Command::Admin(cmd) => run_admin_command(cmd).await,
+        Command::Agents(args) => commands::agents::run(args).await,
+    }
+}
+
+async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
+    match cmd {
+        AdminCommand::Proposals(cmd) => match cmd {
+            ProposalCommand::List(args) => commands::proposals::list(args).await,
+            ProposalCommand::Add(args) => commands::proposals::add(args).await,
+            ProposalCommand::Get { id, json } => commands::proposals::get(&id, json).await,
+            ProposalCommand::Review(args) => commands::proposals::review(args).await,
+            ProposalCommand::Delete(args) => commands::proposals::delete(args).await,
+            ProposalCommand::Action(args) => commands::proposals::action(args).await,
+            ProposalCommand::Update(args) => commands::proposals::update(args).await,
+            ProposalCommand::NextReview => commands::proposals::next_review().await,
+            ProposalCommand::AddSpeaker {
+                proposal_id,
+                speaker,
+            } => commands::proposals::add_speaker(&proposal_id, &speaker).await,
+        },
+        AdminCommand::Sponsors(cmd) => match cmd {
+            SponsorCommand::List(args) => commands::sponsors::list(args).await,
+            SponsorCommand::Add(args) => commands::sponsors::create(args).await,
+            SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
+            SponsorCommand::History { id, json } => commands::sponsors::history(&id, json).await,
+            SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
+            SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
+            SponsorCommand::MoveStage { id, stage } => {
+                commands::sponsors::move_stage(&id, stage).await
+            }
+            SponsorCommand::UpdateInvoice { id, status } => {
+                commands::sponsors::update_invoice(&id, &status).await
+            }
+            SponsorCommand::UpdateContract { id, status } => {
+                commands::sponsors::update_contract(&id, &status).await
+            }
+            SponsorCommand::SendContract { id, template } => {
+                commands::sponsors::send_contract(&id, template.as_deref()).await
+            }
+            SponsorCommand::SignatureStatus { id } => {
+                commands::sponsors::signature_status(&id).await
+            }
+            SponsorCommand::SyncAudience => commands::sponsors::sync_audience().await,
+        },
+        AdminCommand::Speakers(cmd) => match cmd {
+            commands::speakers::SpeakerCommand::List(args) => commands::speakers::list(args).await,
+            commands::speakers::SpeakerCommand::Get { id, json } => {
+                commands::speakers::get(&id, json).await
+            }
+            commands::speakers::SpeakerCommand::Add(args) => commands::speakers::add(args).await,
+            commands::speakers::SpeakerCommand::Delete { id, yes } => {
+                commands::speakers::delete(&id, yes).await
+            }
+            commands::speakers::SpeakerCommand::Broadcast {
+                subject,
+                message,
+                sync,
+            } => commands::speakers::broadcast(subject.as_deref(), message.as_deref(), sync).await,
+            commands::speakers::SpeakerCommand::FindOrCreate(args) => {
+                commands::speakers::find_or_create(args).await
+            }
+        },
+        AdminCommand::Featured(args) => commands::featured::run(args).await,
+        AdminCommand::Status { json } => commands::admin_status::run(json).await,
+    }
 }
 
 #[tokio::main]
@@ -131,67 +243,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let is_agent = cli.agent;
 
-    let res = match cli.command {
-        Command::Login => commands::login::run(),
-        Command::Logout { yes } => commands::logout::run(yes),
-        Command::Status => commands::status::run(),
-        Command::AgentInfo { json } => commands::agent_discovery::run_agent_info(json).await,
-        Command::HelpJson => commands::agent_discovery::run_help_json(&Cli::command()),
-        Command::Admin(cmd) => match cmd {
-            AdminCommand::Proposals(cmd) => match cmd {
-                ProposalCommand::List(args) => commands::proposals::list(args).await,
-                ProposalCommand::Add(args) => commands::proposals::add(args).await,
-                ProposalCommand::Get { id, json } => commands::proposals::get(&id, json).await,
-                ProposalCommand::Review(args) => commands::proposals::review(args).await,
-                ProposalCommand::Delete(args) => commands::proposals::delete(args).await,
-                ProposalCommand::Action(args) => commands::proposals::action(args).await,
-                ProposalCommand::Update(args) => commands::proposals::update(args).await,
-                ProposalCommand::NextReview => commands::proposals::next_review().await,
-                ProposalCommand::AddSpeaker {
-                    proposal_id,
-                    speaker,
-                } => commands::proposals::add_speaker(&proposal_id, &speaker).await,
-            },
-            AdminCommand::Sponsors(cmd) => match cmd {
-                SponsorCommand::List(args) => commands::sponsors::list(args).await,
-                SponsorCommand::Add(args) => commands::sponsors::create(args).await,
-                SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
-                SponsorCommand::History { id, json } => {
-                    commands::sponsors::history(&id, json).await
-                }
-                SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
-                SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
-            },
-            AdminCommand::Speakers(cmd) => match cmd {
-                commands::speakers::SpeakerCommand::List(args) => {
-                    commands::speakers::list(args).await
-                }
-                commands::speakers::SpeakerCommand::Get { id, json } => {
-                    commands::speakers::get(&id, json).await
-                }
-                commands::speakers::SpeakerCommand::Add(args) => {
-                    commands::speakers::add(args).await
-                }
-                commands::speakers::SpeakerCommand::Delete { id, yes } => {
-                    commands::speakers::delete(&id, yes).await
-                }
-                commands::speakers::SpeakerCommand::Broadcast {
-                    subject,
-                    message,
-                    sync,
-                } => {
-                    commands::speakers::broadcast(subject.as_deref(), message.as_deref(), sync)
-                        .await
-                }
-                commands::speakers::SpeakerCommand::FindOrCreate(args) => {
-                    commands::speakers::find_or_create(args).await
-                }
-            },
-            AdminCommand::Featured(args) => commands::featured::run(args).await,
-            AdminCommand::Status { json } => commands::admin_status::run(json).await,
-        },
-        Command::Agents(args) => commands::agents::run(args).await,
-    };
+    let res = run_command(cli.command).await;
 
     if let Err(e) = res {
         if is_agent {
