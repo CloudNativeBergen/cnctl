@@ -123,7 +123,7 @@ pub struct SponsorActivity {
     pub activity_type: ActivityType,
     pub description: String,
     pub created_at: String,
-    pub created_by: Option<AssignedTo>,
+    pub created_by: Option<super::SpeakerRef>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -141,7 +141,7 @@ pub struct SponsorForConference {
     #[serde(default)]
     pub tier: Option<TierRef>,
     #[serde(default)]
-    pub assigned_to: Option<AssignedTo>,
+    pub assigned_to: Option<super::SpeakerRef>,
     #[serde(default, deserialize_with = "null_to_vec")]
     pub contact_persons: Vec<ContactPerson>,
     #[serde(default)]
@@ -180,14 +180,6 @@ pub struct TierRef {
     #[serde(rename = "_id")]
     pub id: String,
     pub title: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignedTo {
-    #[serde(rename = "_id")]
-    pub id: String,
-    pub name: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

@@ -36,6 +36,9 @@ enum AdminCommand {
     /// Manage sponsor pipeline
     #[command(subcommand)]
     Sponsors(SponsorCommand),
+    /// Manage speaker profiles
+    #[command(subcommand)]
+    Speakers(commands::speakers::SpeakerCommand),
     /// Manage featured content on the front page
     Featured(commands::featured::FeaturedArgs),
     /// Show conference status summary (sponsors, proposals, tickets, targets)
@@ -118,6 +121,7 @@ async fn main() -> Result<()> {
                 SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
                 SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
             },
+            AdminCommand::Speakers(cmd) => commands::speakers::run(cmd).await,
             AdminCommand::Featured(args) => commands::featured::run(args).await,
             AdminCommand::Status { json } => commands::admin_status::run(json).await,
         },

@@ -1,12 +1,14 @@
 mod agent_config;
 mod email_template;
 mod proposal;
+mod speaker;
 mod sponsor;
 mod status;
 
 pub use agent_config::*;
 pub use email_template::*;
 pub use proposal::*;
+pub use speaker::*;
 pub use sponsor::*;
 pub use status::*;
 

@@ -3,7 +3,7 @@ use std::fmt;
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
 
-use super::null_to_vec;
+use super::{Speaker, null_to_vec};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum, Default)]
 #[serde(rename_all = "camelCase")]
@@ -258,18 +258,6 @@ pub fn portable_text_to_plain(blocks: &[serde_json::Value]) -> String {
     }
 
     paragraphs.join("\n\n")
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Speaker {
-    #[serde(rename = "_id")]
-    pub id: String,
-    pub name: String,
-    #[serde(default)]
-    pub email: Option<String>,
-    #[serde(default)]
-    pub image: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
