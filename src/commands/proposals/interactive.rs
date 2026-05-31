@@ -334,3 +334,91 @@ async fn show_detail_loop(
         }
     }
 }
+
+pub async fn add_wizard(client: &TrpcClient) -> Result<()> {
+    use dialoguer::{Input, MultiSelect, Select};
+
+    println!("{}", "── New Proposal Wizard ──".bold().cyan());
+
+    let title: String = Input::new().with_prompt("Proposal Title").interact_text()?;
+
+    let description: String = Input::new()
+        .with_prompt("Abstract / Description")
+        .interact_text()?;
+
+    let outline: String = Input::new()
+        .with_prompt("Outline (internal)")
+        .interact_text()?;
+
+    let format_labels: Vec<&str> = FORMATS.iter().map(|f| f.label()).collect();
+    let format_idx = Select::new()
+        .with_prompt("Talk Format")
+        .items(&format_labels)
+        .default(3) // presentation_40
+        .interact()?;
+    let format = FORMATS[format_idx];
+
+    let level: String = Input::new()
+        .with_prompt("Technical Level (e.g. beginner, intermediate, expert)")
+        .default("intermediate".into())
+        .interact_text()?;
+
+    let language: String = Input::new()
+        .with_prompt("Language")
+        .default("english".into())
+        .interact_text()?;
+
+    // Fetch speakers to allow selection
+    let sp = ui::spinner("Fetching speakers…");
+    let all_speakers = crate::commands::speakers::fetch_all(client).await?;
+    sp.finish_and_clear();
+
+    if all_speakers.is_empty() {
+        anyhow::bail!("No speakers found in database. Create a speaker first.");
+    }
+
+    let speaker_labels: Vec<String> = all_speakers
+        .iter()
+        .map(|s| format!("{} <{}>", s.name, s.email.as_deref().unwrap_or("no email")))
+        .collect();
+
+    println!("\nSelect speakers (space to toggle, enter to confirm):");
+    let chosen_indices = MultiSelect::new().items(&speaker_labels).interact()?;
+
+    if chosen_indices.is_empty() {
+        anyhow::bail!("At least one speaker is required.");
+    }
+
+    let speaker_ids: Vec<String> = chosen_indices
+        .iter()
+        .map(|&i| all_speakers[i].id.clone())
+        .collect();
+
+    let sp = ui::spinner("Creating proposal…");
+    let input = super::args::CreateArgs {
+        title,
+        format: Some(format),
+        level: Some(level),
+        language: Some(language),
+        speakers: Some(speaker_ids),
+        audiences: Some(vec!["developer".into()]), // Default for wizard
+        topics: Some(vec![]),                      // Logic below will override this
+        tos: true,
+        description: Some(description),
+        outline: Some(outline),
+    };
+
+    let proposal: Proposal = client
+        .mutate("proposal.admin.create", &serde_json::to_value(input)?)
+        .await?;
+    sp.finish_and_clear();
+
+    println!(
+        "{} Successfully created proposal {} (ID: {})",
+        "✓".green(),
+        proposal.title.bold(),
+        proposal.id.dimmed()
+    );
+
+    Ok(())
+}
