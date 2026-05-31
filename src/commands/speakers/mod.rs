@@ -14,8 +14,11 @@ pub async fn run(cmd: SpeakerCommand) -> Result<()> {
         SpeakerCommand::Get { id, json } => get(&id, json).await,
         SpeakerCommand::Add(create_args) => create(create_args).await,
         SpeakerCommand::Delete { id, yes } => delete(&id, yes).await,
-        SpeakerCommand::Broadcast { subject, message } => broadcast(&subject, &message).await,
-        SpeakerCommand::SyncAudience => sync_audience().await,
+        SpeakerCommand::Broadcast {
+            subject,
+            message,
+            sync,
+        } => broadcast(subject.as_deref(), message.as_deref(), sync).await,
     }
 }
 
@@ -175,38 +178,40 @@ async fn delete(id: &str, yes: bool) -> Result<()> {
     Ok(())
 }
 
-async fn broadcast(subject: &str, message: &str) -> Result<()> {
+async fn broadcast(subject: Option<&str>, message: Option<&str>, sync: bool) -> Result<()> {
     let client = require_client()?;
 
-    // Wrap plain text in a basic Portable Text block
-    let portable_text = serde_json::json!([{
-        "_type": "block",
-        "children": [{
-            "_type": "span",
-            "text": message
-        }],
-        "style": "normal"
-    }]);
+    if sync {
+        println!("Syncing speaker list with newsletter audience...");
+        let res: serde_json::Value = client
+            .mutate("speaker.admin.syncAudience", &serde_json::json!({}))
+            .await?;
+        println!("Sync response: {res:?}");
+    }
 
-    client
-        .mutate::<serde_json::Value>(
-            "speaker.admin.broadcastEmail",
-            &serde_json::json!({
-                "subject": subject,
-                "message": portable_text.to_string()
-            }),
-        )
-        .await?;
+    if let (Some(subject), Some(message)) = (subject, message) {
+        // Wrap plain text in a basic Portable Text block
+        let portable_text = serde_json::json!([{
+            "_type": "block",
+            "children": [{
+                "_type": "span",
+                "text": message
+            }],
+            "style": "normal"
+        }]);
 
-    println!("Broadcast email sent successfully.");
-    Ok(())
-}
+        client
+            .mutate::<serde_json::Value>(
+                "speaker.admin.broadcastEmail",
+                &serde_json::json!({
+                    "subject": subject,
+                    "message": portable_text.to_string()
+                }),
+            )
+            .await?;
 
-async fn sync_audience() -> Result<()> {
-    let client = require_client()?;
-    let res: serde_json::Value = client
-        .mutate("speaker.admin.syncAudience", &serde_json::json!({}))
-        .await?;
-    println!("Sync response: {res:?}");
+        println!("Broadcast email sent successfully.");
+    }
+
     Ok(())
 }

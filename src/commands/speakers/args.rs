@@ -36,15 +36,18 @@ pub enum SpeakerCommand {
     /// Send a broadcast email to ALL speakers (use with caution!)
     Broadcast {
         /// Email subject
-        #[arg(long)]
-        subject: String,
+        #[arg(long, requires = "message")]
+        subject: Option<String>,
 
         /// Email message (plain text)
+        #[arg(long, requires = "subject")]
+        message: Option<String>,
+
+        /// Sync with newsletter audience before sending (or only sync if subject/message are omitted)
         #[arg(long)]
-        message: String,
+        #[arg(required_unless_present_any = ["subject", "message"])]
+        sync: bool,
     },
-    /// Sync with newsletter audience
-    SyncAudience,
 }
 
 #[derive(Args, Default, Clone, Serialize)]
