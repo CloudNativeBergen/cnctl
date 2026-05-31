@@ -25,7 +25,7 @@ pub async fn prompt_and_submit_review(
     }
 
     let prev_score = existing.and_then(|r| r.score.as_ref());
-    let prev_comment = existing.and_then(|r| r.comment.as_deref()).unwrap_or("");
+    let prev_comment = existing.and_then(|r| r.comment.as_str()).unwrap_or("");
 
     // Prompt scores (Esc to cancel at any step)
     let Some(content) = prompt_score("Content", score_default(prev_score, |s| s.content))? else {

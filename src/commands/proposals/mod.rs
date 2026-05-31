@@ -6,7 +6,7 @@ mod review;
 #[cfg(test)]
 mod tests;
 
-pub use args::{ListArgs, ReviewArgs};
+pub use args::{ActionArgs, CreateArgs, DeleteArgs, ListArgs, ReviewArgs, UpdateArgs};
 
 use anyhow::Result;
 
@@ -41,6 +41,184 @@ pub async fn submit_review(client: &TrpcClient, input: &ReviewInput) -> Result<s
         .await
 }
 
+pub async fn add(args: CreateArgs) -> Result<()> {
+    let client = require_client()?;
+
+    if args.title.is_empty() && console::Term::stdout().is_term() {
+        return interactive::add_wizard(&client).await;
+    }
+
+    let mut payload = serde_json::to_value(&args)?;
+
+    // Wrap plain text description in a Portable Text array
+    if let Some(desc) = args.description {
+        let portable_text = serde_json::json!([{
+            "_type": "block",
+            "children": [{
+                "_type": "span",
+                "text": desc
+            }],
+            "style": "normal"
+        }]);
+        payload["description"] = portable_text;
+    }
+
+    // Convert topic IDs to Sanity references
+    if let Some(topics) = args.topics {
+        let refs: Vec<serde_json::Value> = topics
+            .into_iter()
+            .map(|id| serde_json::json!({ "_type": "reference", "_ref": id }))
+            .collect();
+        payload["topics"] = serde_json::json!(refs);
+    }
+
+    let proposal: Proposal = client.mutate("proposal.admin.create", &payload).await?;
+
+    println!(
+        "Successfully created proposal {} (ID: {})",
+        proposal.title, proposal.id
+    );
+    Ok(())
+}
+
+pub async fn delete(args: DeleteArgs) -> Result<()> {
+    if !args.yes && console::Term::stdout().is_term() {
+        let confirmed = dialoguer::Confirm::new()
+            .with_prompt(format!(
+                "Are you sure you want to delete proposal {}?",
+                args.id
+            ))
+            .default(false)
+            .interact()?;
+
+        if !confirmed {
+            anyhow::bail!("Deletion cancelled.");
+        }
+    }
+
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "proposal.admin.delete",
+            &serde_json::json!({ "id": args.id }),
+        )
+        .await?;
+
+    println!("Successfully deleted proposal {}.", args.id);
+    Ok(())
+}
+
+pub async fn action(args: ActionArgs) -> Result<()> {
+    let client = require_client()?;
+    let res: serde_json::Value = client
+        .mutate(
+            "proposal.action",
+            &serde_json::json!({
+                "id": args.id,
+                "action": args.action,
+                "notify": args.notify,
+                "comment": args.comment,
+            }),
+        )
+        .await?;
+
+    let status = res
+        .get("proposalStatus")
+        .and_then(|s| s.as_str())
+        .unwrap_or("unknown");
+
+    println!("Action performed successfully. New status: {status}");
+    Ok(())
+}
+
+pub async fn update(args: UpdateArgs) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "proposal.admin.update",
+            &serde_json::json!({
+                "id": args.id,
+                "data": args,
+            }),
+        )
+        .await?;
+
+    println!("Successfully updated proposal {}.", args.id);
+    Ok(())
+}
+
+pub async fn add_speaker(proposal_id: &str, speaker_query: &str) -> Result<()> {
+    let client = require_client()?;
+
+    // 1. Identify the speaker (ID or Email search)
+    let speaker_id = if speaker_query.contains('@') {
+        let sp = ui::spinner("Searching for speaker…");
+        let search_args = crate::commands::speakers::ListArgs {
+            query: Some(speaker_query.to_string()),
+            all: true,
+            ..Default::default()
+        };
+        let results = crate::commands::speakers::fetch_search(&client, &search_args).await?;
+        sp.finish_and_clear();
+
+        results
+            .first()
+            .map(|s| s.id.clone())
+            .ok_or_else(|| anyhow::anyhow!("Speaker not found for email: {speaker_query}"))?
+    } else {
+        speaker_query.to_string()
+    };
+
+    // 2. Get current proposal
+    let sp = ui::spinner("Fetching current proposal…");
+    let proposal = fetch_one(&client, proposal_id).await?;
+    sp.finish_and_clear();
+
+    // 3. Update with new speaker list
+    let mut speaker_ids: Vec<String> = proposal.speakers.into_iter().map(|s| s.id).collect();
+    if speaker_ids.contains(&speaker_id) {
+        println!("Speaker is already associated with this proposal.");
+        return Ok(());
+    }
+    speaker_ids.push(speaker_id.clone());
+
+    let update_args = UpdateArgs {
+        id: proposal_id.to_string(),
+        speakers: Some(speaker_ids),
+        ..Default::default()
+    };
+
+    update(update_args).await?;
+    println!("Added speaker {speaker_id} to proposal {proposal_id}.");
+
+    Ok(())
+}
+
+pub async fn next_review() -> Result<()> {
+    let client = require_client()?;
+    let reviewer_name = crate::config::load().ok().and_then(|c| c.name);
+
+    let sp = ui::spinner("Fetching next unreviewed proposal…");
+    let input = serde_json::json!({});
+    let proposal_opt: Option<Proposal> = client
+        .query("proposal.admin.nextUnreviewed", Some(&input))
+        .await?;
+    sp.finish_and_clear();
+
+    match proposal_opt {
+        Some(proposal) => {
+            crate::display::print_proposal_detail(&proposal);
+            println!();
+            review::prompt_and_submit_review(&client, &proposal, reviewer_name.as_deref()).await?;
+        }
+        None => {
+            println!("No unreviewed proposals found. Great job!");
+        }
+    }
+
+    Ok(())
+}
+
 // ── Command entry points ─────────────────────────────────────────────────────
 
 pub async fn list(args: ListArgs) -> Result<()> {
@@ -49,6 +227,22 @@ pub async fn list(args: ListArgs) -> Result<()> {
     let sp = ui::spinner("Fetching proposals…");
     let all = fetch_all(&client, &args).await?;
     sp.finish_and_clear();
+
+    if args.compact {
+        let compact: Vec<serde_json::Value> = all
+            .into_iter()
+            .map(|p| {
+                serde_json::json!({
+                    "id": p.id,
+                    "title": p.title,
+                    "status": p.status,
+                    "speakers": p.speakers.iter().map(|s| &s.name).collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&compact)?);
+        return Ok(());
+    }
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&all)?);
@@ -119,31 +313,6 @@ pub async fn review(args: ReviewArgs) -> Result<()> {
         println!("Review submitted ({:.0}/15)", input.score.total());
     } else {
         review::prompt_and_submit_review(&client, &proposal, reviewer_name.as_deref()).await?;
-    }
-
-    Ok(())
-}
-
-pub async fn next_review() -> Result<()> {
-    let client = require_client()?;
-    let reviewer_name = crate::config::load().ok().and_then(|c| c.name);
-
-    let sp = ui::spinner("Fetching next unreviewed proposal…");
-    let input = serde_json::json!({});
-    let proposal_opt: Option<Proposal> = client
-        .query("proposal.admin.nextUnreviewed", Some(&input))
-        .await?;
-    sp.finish_and_clear();
-
-    match proposal_opt {
-        Some(proposal) => {
-            crate::display::print_proposal_detail(&proposal);
-            println!();
-            review::prompt_and_submit_review(&client, &proposal, reviewer_name.as_deref()).await?;
-        }
-        None => {
-            println!("No unreviewed proposals found. Great job!");
-        }
     }
 
     Ok(())

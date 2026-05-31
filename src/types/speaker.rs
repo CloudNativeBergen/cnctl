@@ -1,5 +1,6 @@
 use clap::ValueEnum;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 use super::null_to_vec;
 
@@ -10,17 +11,17 @@ pub struct Speaker {
     pub id: String,
     pub name: String,
     #[serde(default)]
-    pub slug: Option<String>,
+    pub slug: serde_json::Value,
     #[serde(default)]
-    pub email: Option<String>,
+    pub email: serde_json::Value,
     #[serde(default)]
-    pub title: Option<String>,
+    pub title: serde_json::Value,
     #[serde(default)]
-    pub company: Option<String>,
+    pub company: serde_json::Value,
     #[serde(default)]
-    pub image: Option<String>,
-    #[serde(default, deserialize_with = "null_to_vec")]
-    pub bio: Vec<serde_json::Value>,
+    pub image: serde_json::Value,
+    #[serde(default)]
+    pub bio: serde_json::Value,
     #[serde(default, deserialize_with = "null_to_vec")]
     pub links: Vec<String>,
     #[serde(default, deserialize_with = "null_to_vec")]
@@ -28,13 +29,32 @@ pub struct Speaker {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, ValueEnum)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "kebab-case")]
 pub enum SpeakerFlag {
+    Local,
+    FirstTime,
+    Diverse,
+    RequiresFunding,
     Keynote,
     Hidden,
     Internal,
     #[serde(other)]
     Unknown,
+}
+
+impl std::fmt::Display for SpeakerFlag {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(match self {
+            Self::Local => "local",
+            Self::FirstTime => "first-time",
+            Self::Diverse => "diverse",
+            Self::RequiresFunding => "requires-funding",
+            Self::Keynote => "keynote",
+            Self::Hidden => "hidden",
+            Self::Internal => "internal",
+            Self::Unknown => "unknown",
+        })
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]

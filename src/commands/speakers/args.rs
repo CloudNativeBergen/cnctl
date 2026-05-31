@@ -48,6 +48,25 @@ pub enum SpeakerCommand {
         #[arg(required_unless_present_any = ["subject", "message"])]
         sync: bool,
     },
+    /// Find a speaker by email or create a new one if not found
+    FindOrCreate(FindOrCreateArgs),
+}
+
+#[derive(Args, Serialize)]
+pub struct FindOrCreateArgs {
+    /// Speaker email
+    pub email: String,
+
+    /// Speaker name (required for creation)
+    pub name: String,
+
+    /// Job title
+    #[arg(long)]
+    pub title: Option<String>,
+
+    /// Company name
+    #[arg(long)]
+    pub company: Option<String>,
 }
 
 #[derive(Args, Default, Clone, Serialize)]
@@ -62,6 +81,11 @@ pub struct ListArgs {
     #[arg(long = "search")]
     #[serde(rename = "query", skip_serializing_if = "Option::is_none")]
     pub query: Option<String>,
+
+    /// Search across ALL speakers in the database (not just this conference)
+    #[arg(long)]
+    #[serde(skip)]
+    pub all: bool,
 
     /// Filter by proposal status (comma-separated, defaults to accepted,confirmed)
     #[arg(long, value_delimiter = ',', value_enum)]
@@ -79,8 +103,23 @@ pub struct ListArgs {
     pub order: SortOrder,
 }
 
-#[derive(Args, Serialize)]
+impl ListArgs {
+    pub fn has_cli_filters(&self) -> bool {
+        self.query.is_some()
+            || self.status.is_some()
+            || self.sort != ProposalSortBy::Speaker
+            || self.order != SortOrder::Asc
+    }
+}
+
+#[derive(Args, Serialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateArgs {
+    /// Optional specific ID (UUID)
+    #[arg(long)]
+    #[serde(rename = "_id", skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+
     /// Speaker name
     pub name: String,
 
@@ -89,25 +128,31 @@ pub struct CreateArgs {
 
     /// Job title
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
 
     /// Company name
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub company: Option<String>,
 
     /// Biography (plain text)
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub bio: Option<String>,
 
     /// Image URL
     #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
 
     /// Social links (comma-separated)
     #[arg(long, value_delimiter = ',')]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<Vec<String>>,
 
     /// Speaker flags (comma-separated)
     #[arg(long, value_delimiter = ',', value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub flags: Option<Vec<SpeakerFlag>>,
 }

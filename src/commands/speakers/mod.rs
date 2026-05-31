@@ -1,4 +1,5 @@
 mod args;
+mod interactive;
 pub use args::*;
 
 use anyhow::Result;
@@ -6,21 +7,8 @@ use colored::Colorize;
 
 use super::require_client;
 use crate::client::TrpcClient;
-use crate::types::{ProposalStatus, Speaker, SpeakerSummary};
-
-pub async fn run(cmd: SpeakerCommand) -> Result<()> {
-    match cmd {
-        SpeakerCommand::List(args) => list(args).await,
-        SpeakerCommand::Get { id, json } => get(&id, json).await,
-        SpeakerCommand::Add(create_args) => create(create_args).await,
-        SpeakerCommand::Delete { id, yes } => delete(&id, yes).await,
-        SpeakerCommand::Broadcast {
-            subject,
-            message,
-            sync,
-        } => broadcast(subject.as_deref(), message.as_deref(), sync).await,
-    }
-}
+use crate::types::{Proposal, ProposalStatus, Speaker, SpeakerSummary};
+use crate::ui;
 
 pub async fn fetch_all(client: &TrpcClient) -> Result<Vec<SpeakerSummary>> {
     client.query("speaker.admin.list", None).await
@@ -41,15 +29,15 @@ pub async fn fetch_one(client: &TrpcClient, id: &str) -> Result<Speaker> {
         .await
 }
 
-async fn list(args: ListArgs) -> Result<()> {
-    let client = require_client()?;
-
+pub async fn fetch_conference_speakers(
+    client: &TrpcClient,
+    args: &ListArgs,
+) -> Result<Vec<SpeakerSummary>> {
     let statuses = args
         .status
         .clone()
         .unwrap_or_else(|| vec![ProposalStatus::Accepted, ProposalStatus::Confirmed]);
 
-    // We fetch proposals to get the speakers with the desired status
     let proposal_args = crate::commands::proposals::ListArgs {
         status: Some(statuses),
         search: args.query.clone(),
@@ -58,9 +46,8 @@ async fn list(args: ListArgs) -> Result<()> {
         ..Default::default()
     };
 
-    let proposals = crate::commands::proposals::fetch_all(&client, &proposal_args).await?;
+    let proposals = crate::commands::proposals::fetch_all(client, &proposal_args).await?;
 
-    // Extract unique speakers from proposals
     let mut speakers: Vec<SpeakerSummary> = Vec::new();
     let mut seen_ids = std::collections::HashSet::new();
 
@@ -70,14 +57,92 @@ async fn list(args: ListArgs) -> Result<()> {
                 speakers.push(SpeakerSummary {
                     id: s.id,
                     name: s.name,
-                    email: s.email,
-                    title: None, // Summary from proposals might not have full title
-                    slug: None,
-                    image: s.image,
+                    email: s.email.as_str().map(String::from),
+                    title: s.title.as_str().map(String::from),
+                    slug: s.slug.as_str().map(String::from),
+                    image: s.image.as_str().map(String::from),
                 });
             }
         }
     }
+    Ok(speakers)
+}
+
+pub async fn fetch_talks_for_speaker(client: &TrpcClient, id: &str) -> Result<Vec<Proposal>> {
+    let proposal_args = crate::commands::proposals::ListArgs {
+        status: Some(vec![
+            ProposalStatus::Submitted,
+            ProposalStatus::Accepted,
+            ProposalStatus::Confirmed,
+            ProposalStatus::Waitlisted,
+            ProposalStatus::Rejected,
+        ]),
+        ..Default::default()
+    };
+    let all_proposals = crate::commands::proposals::fetch_all(client, &proposal_args).await?;
+    let speaker_talks: Vec<Proposal> = all_proposals
+        .into_iter()
+        .filter(|p| p.speakers.iter().any(|s| s.id == id))
+        .collect();
+    Ok(speaker_talks)
+}
+
+pub async fn list(args: ListArgs) -> Result<()> {
+    let client = require_client()?;
+
+    // Global list/search across all speakers
+    if args.all {
+        let all = fetch_all(&client).await?;
+        let filtered = if let Some(ref q) = args.query {
+            let q = q.to_lowercase();
+            all.into_iter()
+                .filter(|s| {
+                    s.name.to_lowercase().contains(&q)
+                        || s.email
+                            .as_ref()
+                            .is_some_and(|e| e.to_lowercase().contains(&q))
+                })
+                .collect()
+        } else {
+            all
+        };
+
+        if !args.json && console::Term::stdout().is_term() {
+            return interactive::list_interactive(&client, &filtered).await;
+        }
+
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&filtered)?);
+        } else {
+            if filtered.is_empty() {
+                println!("No speakers found matching the criteria.");
+                return Ok(());
+            }
+            println!(
+                "{}",
+                "ID                   NAME                 EMAIL"
+                    .bold()
+                    .cyan()
+            );
+            for s in filtered {
+                println!(
+                    "{:<20} {:<20} {}",
+                    s.id,
+                    s.name,
+                    s.email.as_deref().unwrap_or_default()
+                );
+            }
+        }
+        return Ok(());
+    }
+
+    // Fetch conference speakers for interactive mode or if no filters are applied
+    if !args.json && !args.has_cli_filters() && console::Term::stdout().is_term() {
+        let speakers = fetch_conference_speakers(&client, &args).await?;
+        return interactive::list_interactive(&client, &speakers).await;
+    }
+
+    let speakers = fetch_conference_speakers(&client, &args).await?;
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&speakers)?);
@@ -109,21 +174,24 @@ async fn list(args: ListArgs) -> Result<()> {
     Ok(())
 }
 
-async fn get(id: &str, json: bool) -> Result<()> {
+pub async fn get(id: &str, json: bool) -> Result<()> {
     let client = require_client()?;
     let speaker = fetch_one(&client, id).await?;
+    let speaker_talks = fetch_talks_for_speaker(&client, id).await?;
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&speaker)?);
+        let mut out = serde_json::to_value(&speaker)?;
+        out["talks"] = serde_json::to_value(speaker_talks)?;
+        println!("{}", serde_json::to_string_pretty(&out)?);
     } else {
         println!("{} ({})", speaker.name.bold(), speaker.id.dimmed());
-        if let Some(ref email) = speaker.email {
+        if let Some(email) = speaker.email.as_str() {
             println!("Email:   {email}");
         }
-        if let Some(ref company) = speaker.company {
+        if let Some(company) = speaker.company.as_str() {
             println!("Company: {company}");
         }
-        if let Some(ref title) = speaker.title {
+        if let Some(title) = speaker.title.as_str() {
             println!("Title:   {title}");
         }
 
@@ -133,24 +201,60 @@ async fn get(id: &str, json: bool) -> Result<()> {
 
         if !speaker.links.is_empty() {
             println!("\nLinks:");
-            for link in speaker.links {
+            for link in &speaker.links {
                 println!("  - {link}");
             }
         }
 
-        if !speaker.bio.is_empty() {
+        if !speaker_talks.is_empty() {
+            println!("\nTalks:");
+            for talk in speaker_talks {
+                let status = format!("[{}]", talk.status);
+                println!("  - {} {}", status.yellow(), talk.title);
+            }
+        }
+
+        if !speaker.bio.is_null() {
             println!("\nBio:");
-            println!("{}", crate::types::portable_text_to_plain(&speaker.bio));
+            if speaker.bio.is_array() {
+                println!(
+                    "{}",
+                    crate::types::portable_text_to_plain(speaker.bio.as_array().unwrap())
+                );
+            } else if speaker.bio.is_string() {
+                println!("{}", speaker.bio.as_str().unwrap());
+            } else {
+                println!("{}", speaker.bio);
+            }
         }
     }
     Ok(())
 }
 
-async fn create(args: CreateArgs) -> Result<()> {
+pub async fn add(args: CreateArgs) -> Result<()> {
     let client = require_client()?;
-    let speaker: Speaker = client
-        .mutate("speaker.admin.create", &serde_json::to_value(args)?)
-        .await?;
+
+    // Interactive mode if no name is provided
+    if args.name.is_empty() && console::Term::stdout().is_term() {
+        return interactive::add_wizard(&client).await;
+    }
+
+    let mut payload = serde_json::to_value(&args)?;
+
+    // Wrap plain text description in a Portable Text array if provided
+    if let Some(ref bio) = args.bio {
+        let portable_text = serde_json::json!([{
+            "_type": "block",
+            "children": [{
+                "_type": "span",
+                "text": bio
+            }],
+            "style": "normal"
+        }]);
+        payload["bio"] = portable_text;
+    }
+
+    let speaker: Speaker = client.mutate("speaker.admin.create", &payload).await?;
     println!(
         "Successfully created speaker {} (ID: {})",
         speaker.name, speaker.id
@@ -158,7 +262,53 @@ async fn create(args: CreateArgs) -> Result<()> {
     Ok(())
 }
 
-async fn delete(id: &str, yes: bool) -> Result<()> {
+pub async fn find_or_create(args: FindOrCreateArgs) -> Result<()> {
+    let client = require_client()?;
+
+    // 1. Try to find by email
+    let sp = ui::spinner("Checking if speaker exists…");
+    let search_args = ListArgs {
+        query: Some(args.email.clone()),
+        all: true,
+        ..Default::default()
+    };
+    let results = fetch_search(&client, &search_args).await?;
+    sp.finish_and_clear();
+
+    if let Some(speaker) = results.first() {
+        println!(
+            "{} Speaker already exists: {} (ID: {})",
+            "ℹ".blue(),
+            speaker.name.bold(),
+            speaker.id.dimmed()
+        );
+        return Ok(());
+    }
+
+    // 2. Create if not found
+    let sp = ui::spinner("Creating new speaker profile…");
+    let create_args = CreateArgs {
+        name: args.name,
+        email: args.email,
+        title: args.title,
+        company: args.company,
+        ..Default::default()
+    };
+    let payload = serde_json::to_value(&create_args)?;
+    let speaker: Speaker = client.mutate("speaker.admin.create", &payload).await?;
+    sp.finish_and_clear();
+
+    println!(
+        "{} Successfully created speaker {} (ID: {})",
+        "✓".green(),
+        speaker.name.bold(),
+        speaker.id.dimmed()
+    );
+
+    Ok(())
+}
+
+pub async fn delete(id: &str, yes: bool) -> Result<()> {
     if !yes && console::Term::stdout().is_term() {
         let confirmed = dialoguer::Confirm::new()
             .with_prompt(format!("Are you sure you want to delete speaker {id}?"))
@@ -178,7 +328,7 @@ async fn delete(id: &str, yes: bool) -> Result<()> {
     Ok(())
 }
 
-async fn broadcast(subject: Option<&str>, message: Option<&str>, sync: bool) -> Result<()> {
+pub async fn broadcast(subject: Option<&str>, message: Option<&str>, sync: bool) -> Result<()> {
     let client = require_client()?;
 
     if sync {
@@ -192,12 +342,12 @@ async fn broadcast(subject: Option<&str>, message: Option<&str>, sync: bool) -> 
     if let (Some(subject), Some(message)) = (subject, message) {
         // Wrap plain text in a basic Portable Text block
         let portable_text = serde_json::json!([{
-            "_type": "block",
-            "children": [{
-                "_type": "span",
-                "text": message
-            }],
-            "style": "normal"
+                "_type": "block",
+                "children": [{
+                    "_type": "span",
+                    "text": message
+                }],
+                "style": "normal"
         }]);
 
         client

@@ -13,27 +13,28 @@ pub fn render_proposal_detail(proposal: &Proposal) -> String {
     if let Some(format) = proposal.format {
         writeln!(buf, "Format:   {format}").unwrap();
     }
-    if let Some(level) = &proposal.level {
+    if let Some(level) = proposal.level.as_str() {
         writeln!(buf, "Level:    {}", capitalize(level)).unwrap();
     }
-    if let Some(language) = &proposal.language {
+    if let Some(language) = proposal.language.as_str() {
         writeln!(buf, "Language: {}", capitalize(language)).unwrap();
     }
 
     if !proposal.speakers.is_empty() {
         writeln!(buf, "\nSpeakers:").unwrap();
         for s in &proposal.speakers {
-            let email = s.email.as_deref().unwrap_or("");
-            writeln!(buf, "  - {} <{}>", s.name, email).unwrap();
+            let email = s.email.as_str().unwrap_or("");
+            let mut line = format!("  - {} <{}>", s.name, email);
+            if !s.flags.is_empty() {
+                let flags: Vec<String> = s.flags.iter().map(|f| format!("[{f}]")).collect();
+                write!(line, " {}", flags.join(" ").yellow()).unwrap();
+            }
+            writeln!(buf, "{line}").unwrap();
         }
     }
 
     if !proposal.topics.is_empty() {
-        let topics: Vec<&str> = proposal
-            .topics
-            .iter()
-            .filter_map(|t| t.title.as_deref())
-            .collect();
+        let topics: Vec<&str> = proposal.topics.iter().filter_map(|t| t.title()).collect();
         if !topics.is_empty() {
             writeln!(buf, "\nTopics: {}", topics.join(", ")).unwrap();
         }
@@ -46,7 +47,7 @@ pub fn render_proposal_detail(proposal: &Proposal) -> String {
         }
     }
 
-    if let Some(outline) = &proposal.outline
+    if let Some(outline) = proposal.outline.as_str()
         && !outline.is_empty()
     {
         writeln!(buf, "\nOutline:\n{outline}").unwrap();
@@ -73,10 +74,14 @@ pub fn render_proposal_detail(proposal: &Proposal) -> String {
             } else {
                 writeln!(buf, "  {reviewer} — (no score)").unwrap();
             }
-            if let Some(comment) = &r.comment
-                && !comment.is_empty()
-            {
-                writeln!(buf, "    {}", comment.dimmed()).unwrap();
+            if !r.comment.is_null() {
+                if let Some(comment) = r.comment.as_str() {
+                    if !comment.is_empty() {
+                        writeln!(buf, "    {}", comment.dimmed()).unwrap();
+                    }
+                } else {
+                    writeln!(buf, "    {}", r.comment.to_string().dimmed()).unwrap();
+                }
             }
         }
     }

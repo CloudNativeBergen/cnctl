@@ -204,9 +204,9 @@ pub struct Proposal {
     #[serde(default)]
     pub format: Option<ProposalFormat>,
     #[serde(default)]
-    pub level: Option<String>,
+    pub level: serde_json::Value,
     #[serde(default)]
-    pub language: Option<String>,
+    pub language: serde_json::Value,
     #[serde(default, deserialize_with = "null_to_vec")]
     pub speakers: Vec<Speaker>,
     #[serde(default, deserialize_with = "null_to_vec")]
@@ -218,11 +218,11 @@ pub struct Proposal {
     #[serde(default, rename = "_updatedAt")]
     pub updated_at: Option<String>,
     #[serde(default)]
-    pub outline: Option<String>,
+    pub outline: serde_json::Value,
     #[serde(default, deserialize_with = "null_to_vec")]
     pub description: Vec<serde_json::Value>,
     #[serde(default)]
-    pub video: Option<String>,
+    pub video: serde_json::Value,
 }
 
 /// Convert Portable Text blocks to plain text for terminal display.
@@ -263,8 +263,14 @@ pub fn portable_text_to_plain(blocks: &[serde_json::Value]) -> String {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Topic {
-    #[serde(default)]
-    pub title: Option<String>,
+    #[serde(flatten)]
+    pub data: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Topic {
+    pub fn title(&self) -> Option<&str> {
+        self.data.get("title").and_then(|v| v.as_str())
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -273,7 +279,7 @@ pub struct Review {
     #[serde(default)]
     pub score: Option<ReviewScore>,
     #[serde(default)]
-    pub comment: Option<String>,
+    pub comment: serde_json::Value,
     #[serde(default)]
     pub reviewer: Option<Reviewer>,
 }
@@ -307,6 +313,8 @@ pub struct ReviewInput {
 #[serde(rename_all = "camelCase")]
 pub struct Reviewer {
     pub name: String,
+    #[serde(flatten)]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -363,7 +371,7 @@ mod tests {
         assert!(p.speakers.is_empty());
         assert!(p.topics.is_empty());
         assert!(p.reviews.is_empty());
-        assert!(p.outline.is_none());
+        assert!(p.outline.is_null());
     }
 
     #[test]

@@ -1,8 +1,9 @@
-use clap::Args;
+use clap::{Args, ValueEnum};
 use serde::Serialize;
 
 use crate::types::{ProposalFormat, ProposalSortBy, ProposalStatus, ReviewStatus, SortOrder};
 
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Args, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListArgs {
@@ -10,6 +11,11 @@ pub struct ListArgs {
     #[arg(long)]
     #[serde(skip)]
     pub json: bool,
+
+    /// Output minimal JSON fields for agents (ID, Title, Status, Speakers)
+    #[arg(long)]
+    #[serde(skip)]
+    pub compact: bool,
 
     /// Case-insensitive search across proposal titles and speaker names
     #[arg(long)]
@@ -53,6 +59,129 @@ pub struct ListArgs {
     /// Sort order
     #[arg(long = "order", value_enum, default_value_t = SortOrder::Desc)]
     pub sort_order: SortOrder,
+}
+
+#[derive(Args, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateArgs {
+    /// Proposal title
+    pub title: String,
+
+    /// Talk format
+    #[arg(long, value_enum)]
+    pub format: Option<ProposalFormat>,
+
+    /// Technical level
+    #[arg(long)]
+    pub level: Option<String>,
+
+    /// Language
+    #[arg(long)]
+    pub language: Option<String>,
+
+    /// Speaker IDs (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    pub speakers: Option<Vec<String>>,
+
+    /// Target audiences (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    pub audiences: Option<Vec<String>>,
+
+    /// Topic IDs (comma-separated)
+    #[arg(long, value_delimiter = ',')]
+    pub topics: Option<Vec<String>>,
+
+    /// Accept Terms of Service
+    #[arg(long)]
+    pub tos: bool,
+
+    /// Description/Abstract
+    #[arg(long)]
+    pub description: Option<String>,
+
+    /// Outline
+    #[arg(long)]
+    pub outline: Option<String>,
+}
+
+#[derive(ValueEnum, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ProposalAction {
+    Accept,
+    Reject,
+    Confirm,
+    Withdraw,
+}
+
+#[derive(Args)]
+pub struct ActionArgs {
+    /// Proposal ID
+    pub id: String,
+
+    /// Action to perform
+    #[arg(value_enum)]
+    pub action: ProposalAction,
+
+    /// Send notification email to speakers
+    #[arg(long)]
+    pub notify: bool,
+
+    /// Internal/External comment regarding the action
+    #[arg(long)]
+    pub comment: Option<String>,
+}
+
+#[derive(Args, Default, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateArgs {
+    /// Proposal ID
+    #[serde(skip)]
+    pub id: String,
+
+    /// Proposal title
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+
+    /// Talk format
+    #[arg(long, value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub format: Option<ProposalFormat>,
+
+    /// Technical level
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub level: Option<String>,
+
+    /// Language
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+
+    /// Speaker IDs (comma-separated, replaces current list)
+    #[arg(long, value_delimiter = ',')]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub speakers: Option<Vec<String>>,
+
+    /// Description/Abstract
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+
+    /// Outline
+    #[arg(long)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outline: Option<String>,
+}
+
+#[derive(Args)]
+pub struct DeleteArgs {
+    /// Proposal ID
+    pub id: String,
+
+    /// Skip confirmation prompt
+    #[arg(long, short = 'y')]
+    pub yes: bool,
 }
 
 #[derive(Args)]
