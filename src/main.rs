@@ -112,6 +112,10 @@ enum SponsorCommand {
     Get {
         /// Sponsor-for-conference ID
         id: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
     /// Show sponsor history (activities, notes, stage changes)
     History {
@@ -197,7 +201,7 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
             SponsorCommand::List(args) => commands::sponsors::list(args).await,
             SponsorCommand::Add(args) => commands::sponsors::create(args).await,
             SponsorCommand::Update(args) => commands::sponsors::update(args).await,
-            SponsorCommand::Get { id } => commands::sponsors::get(&id).await,
+            SponsorCommand::Get { id, json } => commands::sponsors::get(&id, json).await,
             SponsorCommand::History { id, json } => commands::sponsors::history(&id, json).await,
             SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
             SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,

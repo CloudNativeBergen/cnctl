@@ -80,10 +80,14 @@ pub async fn list(args: ListArgs) -> Result<()> {
     Ok(())
 }
 
-pub async fn get(id: &str) -> Result<()> {
+pub async fn get(id: &str, json: bool) -> Result<()> {
     let client = require_client()?;
     let sponsor = fetch_one(&client, id).await?;
-    display::print_sponsor_detail(&sponsor);
+    if json {
+        println!("{}", serde_json::to_string_pretty(&sponsor)?);
+    } else {
+        display::print_sponsor_detail(&sponsor);
+    }
     Ok(())
 }
 
