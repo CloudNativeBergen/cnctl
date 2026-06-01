@@ -6,6 +6,8 @@ use tempfile::TempDir;
 use wiremock::matchers::{body_string_contains, method, path, query_param_contains};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 fn proposal_json() -> serde_json::Value {
@@ -271,6 +273,7 @@ async fn sponsors_move_stage_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -304,6 +307,7 @@ async fn sponsors_update_invoice_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -338,6 +342,7 @@ async fn sponsors_sync_audience_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -396,6 +401,7 @@ async fn sponsors_update_fields_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -433,6 +439,7 @@ async fn sponsors_update_contract_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -464,6 +471,7 @@ async fn sponsors_send_contract_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -495,6 +503,7 @@ async fn sponsors_signature_status_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -732,6 +741,7 @@ async fn sponsors_history_e2e() {
         name: None,
     };
     config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
@@ -775,6 +785,7 @@ async fn sponsors_add_note_e2e() {
     config::save_to(&cfg, &config_path).unwrap();
 
     // Set env var to point to this config
+    let _lock = ENV_LOCK.lock().await;
     unsafe {
         std::env::set_var("CNCTL_CONFIG", config_path);
     }
