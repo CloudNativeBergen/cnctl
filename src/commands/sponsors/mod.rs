@@ -47,9 +47,9 @@ pub async fn fetch_activities(
 
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
-    let all = fetch_all(&client, &args).await?;
 
     if args.json {
+        let all = fetch_all(&client, &args).await?;
         println!("{}", serde_json::to_string_pretty(&all)?);
     } else if args.search.is_some()
         || args.status.is_some()
@@ -65,6 +65,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
         || args.has_contact
         || !console::Term::stdout().is_term()
     {
+        let all = fetch_all(&client, &args).await?;
         if all.is_empty() {
             println!("No sponsors match the given filters.");
         } else {
@@ -75,7 +76,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
             println!("\n{} sponsors", all.len());
         }
     } else {
-        interactive::list_interactive(&client, &all)?;
+        interactive::list_interactive(&client, args).await?;
     }
     Ok(())
 }
