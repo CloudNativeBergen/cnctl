@@ -699,6 +699,7 @@ async fn sponsors_history_e2e() {
 
     Mock::given(method("GET"))
         .and(path("/api/trpc/sponsor.crm.getById"))
+        .and(query_param_contains("input", "sfc-111"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
             "result": {
                 "data": {
@@ -737,7 +738,7 @@ async fn sponsors_history_e2e() {
 
     let _client = TrpcClient::new(&server.uri(), "test-token");
     let result = sponsors::history("sfc-111", false).await;
-    assert!(result.is_ok());
+    assert!(result.is_ok(), "history failed: {result:?}");
 }
 
 #[tokio::test]
