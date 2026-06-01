@@ -5,6 +5,10 @@ rust = "1.94"
 description = "Build the CLI in release mode"
 run = "cargo build --release"
 
+[tasks.all]
+description = "Run formatting, linting, tests, and release build"
+depends = ["fmt", "clippy", "test", "build"]
+
 [tasks.check]
 description = "Run all checks (clippy, fmt, test)"
 depends = ["clippy", "fmt-check", "test"]
