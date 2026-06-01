@@ -62,7 +62,7 @@ pub fn browser_login(api_url: &str) -> Result<AuthResult> {
     open::that(&login_url).context("Failed to open browser")?;
     println!("Waiting for callback on localhost:{port}...");
 
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_mins(2);
 
     loop {
         let remaining = deadline.saturating_duration_since(std::time::Instant::now());

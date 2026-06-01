@@ -38,7 +38,7 @@ pub fn delete() -> Result<bool> {
 }
 
 pub fn exists() -> bool {
-    default_path().map(|p| p.exists()).unwrap_or(false)
+    default_path().is_ok_and(|p| p.exists())
 }
 
 pub fn load_from(path: &Path) -> Result<Config> {
