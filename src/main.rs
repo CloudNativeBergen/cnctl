@@ -235,9 +235,7 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
             SponsorCommand::SignatureStatus { id } => {
                 commands::sponsors::signature_status(&id).await
             }
-            SponsorCommand::DeleteActivity { id } => {
-                commands::sponsors::delete_activity(&id).await
-            }
+            SponsorCommand::DeleteActivity { id } => commands::sponsors::delete_activity(&id).await,
             SponsorCommand::Assign { id, speaker_id } => {
                 commands::sponsors::assign(&id, speaker_id.as_deref()).await
             }

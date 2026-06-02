@@ -353,11 +353,21 @@ async fn show_detail_loop(client: &TrpcClient, ids: &[&str], start: usize) -> Re
                         // Filter for deletable activities (note, email, call, meeting)
                         let deletable: Vec<_> = activities
                             .iter()
-                            .filter(|a| matches!(a.activity_type, ActivityType::Note | ActivityType::Email | ActivityType::Call | ActivityType::Meeting))
+                            .filter(|a| {
+                                matches!(
+                                    a.activity_type,
+                                    ActivityType::Note
+                                        | ActivityType::Email
+                                        | ActivityType::Call
+                                        | ActivityType::Meeting
+                                )
+                            })
                             .collect();
 
                         if deletable.is_empty() {
-                            println!("No user-supplied activities to delete (system logs are protected).");
+                            println!(
+                                "No user-supplied activities to delete (system logs are protected)."
+                            );
                             std::thread::sleep(std::time::Duration::from_secs(1));
                             break;
                         }
@@ -382,7 +392,10 @@ async fn show_detail_loop(client: &TrpcClient, ids: &[&str], start: usize) -> Re
                         if let Some(idx) = selection {
                             let activity = deletable[idx];
                             if dialoguer::Confirm::new()
-                                .with_prompt(format!("Are you sure you want to delete this {}?", activity.activity_type))
+                                .with_prompt(format!(
+                                    "Are you sure you want to delete this {}?",
+                                    activity.activity_type
+                                ))
                                 .interact()?
                             {
                                 super::delete_activity(&activity.id).await?;

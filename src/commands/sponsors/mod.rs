@@ -112,9 +112,8 @@ pub async fn update(args: UpdateArgs) -> Result<()> {
 }
 
 pub async fn fetch_organizers(client: &TrpcClient) -> Result<Vec<crate::types::SpeakerRef>> {
-    let organizers: Vec<crate::types::SpeakerRef> = client
-        .query("sponsor.crm.listOrganizers", None)
-        .await?;
+    let organizers: Vec<crate::types::SpeakerRef> =
+        client.query("sponsor.crm.listOrganizers", None).await?;
     Ok(organizers)
 }
 
