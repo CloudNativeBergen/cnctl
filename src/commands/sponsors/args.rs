@@ -104,6 +104,11 @@ pub struct UpdateArgs {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notes: Option<String>,
+
+    /// Assign an organizer (speaker ID)
+    #[arg(long = "assigned-to")]
+    #[serde(rename = "assignedTo", skip_serializing_if = "Option::is_none")]
+    pub assigned_to: Option<String>,
 }
 
 #[derive(Args)]

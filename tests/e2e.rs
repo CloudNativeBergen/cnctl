@@ -449,6 +449,72 @@ async fn sponsors_update_contract_e2e() {
 }
 
 #[tokio::test]
+async fn sponsors_assign_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.update"))
+        .and(body_string_contains("assignedTo"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::assign("sfc-111", Some("speaker-123")).await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn sponsors_delete_activity_e2e() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/trpc/sponsor.crm.activities.delete"))
+        .and(body_string_contains("act-123"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {"data": {"success": true}}
+        })))
+        .expect(1)
+        .mount(&server)
+        .await;
+
+    let dir = TempDir::new().unwrap();
+    let config_path = dir.path().join("config.toml");
+    let cfg = Config {
+        api_url: server.uri(),
+        token: "test-jwt".to_string(),
+        conference_id: "conf-2026".to_string(),
+        conference_title: "Test Conf".to_string(),
+        name: None,
+    };
+    config::save_to(&cfg, &config_path).unwrap();
+    let _lock = ENV_LOCK.lock().await;
+    unsafe {
+        std::env::set_var("CNCTL_CONFIG", config_path);
+    }
+
+    let result = sponsors::delete_activity("act-123").await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
 async fn sponsors_send_contract_e2e() {
     let server = MockServer::start().await;
 
@@ -725,6 +791,25 @@ async fn sponsors_history_e2e() {
                         }
                     ]
                 }
+            }
+        })))
+        .mount(&server)
+        .await;
+
+    Mock::given(method("GET"))
+        .and(path("/api/trpc/sponsor.crm.activities.list"))
+        .and(query_param_contains("input", "sfc-111"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "result": {
+                "data": [
+                    {
+                        "_id": "act-1",
+                        "activityType": "note",
+                        "description": "Followed up on booth size",
+                        "createdAt": "2026-05-29T12:00:00Z",
+                        "createdBy": {"_id": "org-1", "name": "Hans"}
+                    }
+                ]
             }
         })))
         .mount(&server)

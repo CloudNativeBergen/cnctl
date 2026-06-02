@@ -201,8 +201,10 @@ async fn show_detail_loop(client: &TrpcClient, ids: &[&str], start: usize) -> Re
             "↑↓/jk scroll",
             "^u/^d half-page",
             "m move stage",
+            "a assign",
             "n add note",
             "e email",
+            "d delete log",
             "q/esc back",
         ]);
         let footer_measure = nav_full.join(" · ");
@@ -214,8 +216,10 @@ async fn show_detail_loop(client: &TrpcClient, ids: &[&str], start: usize) -> Re
             nav.push("^u/^d half-page");
         }
         nav.push("m move stage");
+        nav.push("a assign");
         nav.push("n add note");
         nav.push("e email");
+        nav.push("d delete log");
         nav.push("q/esc back");
         let footer = nav.join(" · ").dimmed().to_string();
 
@@ -269,6 +273,44 @@ async fn show_detail_loop(client: &TrpcClient, ids: &[&str], start: usize) -> Re
                         }
                         break;
                     }
+                    Key::Char('a') => {
+                        println!();
+                        let sp = ui::spinner("Fetching organizers…");
+                        let organizers = super::fetch_organizers(client).await?;
+                        sp.finish_and_clear();
+
+                        if organizers.is_empty() {
+                            println!("No organizers found in conference settings.");
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            break;
+                        }
+
+                        let mut labels: Vec<String> = vec!["<Unassigned>".to_string()];
+                        labels.extend(organizers.iter().map(|o| o.name.clone()));
+
+                        let default_idx = sponsor.assigned_to.as_ref().and_then(|assigned| {
+                            organizers
+                                .iter()
+                                .position(|o| o.id == assigned.id)
+                                .map(|pos| pos + 1)
+                        });
+
+                        let selection = Select::new()
+                            .with_prompt("Assign Organizer")
+                            .items(&labels)
+                            .default(default_idx.unwrap_or(0))
+                            .interact_opt()?;
+
+                        if let Some(idx) = selection {
+                            let speaker_id = if idx == 0 {
+                                None
+                            } else {
+                                Some(organizers[idx - 1].id.as_str())
+                            };
+                            super::assign(&sponsor.id, speaker_id).await?;
+                        }
+                        break;
+                    }
                     Key::Char('n') => {
                         println!();
                         let note: String = Input::new().with_prompt("Add Note").interact_text()?;
@@ -294,6 +336,58 @@ async fn show_detail_loop(client: &TrpcClient, ids: &[&str], start: usize) -> Re
                             json: false,
                         };
                         super::email::run(email_args).await?;
+                        break;
+                    }
+                    Key::Char('d') => {
+                        println!();
+                        let sp = ui::spinner("Fetching history…");
+                        let activities = super::fetch_activities(client, &sponsor.id).await?;
+                        sp.finish_and_clear();
+
+                        if activities.is_empty() {
+                            println!("No activities to delete.");
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            break;
+                        }
+
+                        // Filter for deletable activities (note, email, call, meeting)
+                        let deletable: Vec<_> = activities
+                            .iter()
+                            .filter(|a| matches!(a.activity_type, ActivityType::Note | ActivityType::Email | ActivityType::Call | ActivityType::Meeting))
+                            .collect();
+
+                        if deletable.is_empty() {
+                            println!("No user-supplied activities to delete (system logs are protected).");
+                            std::thread::sleep(std::time::Duration::from_secs(1));
+                            break;
+                        }
+
+                        let labels: Vec<String> = deletable
+                            .iter()
+                            .map(|a| {
+                                format!(
+                                    "[{}] {} - {}...",
+                                    a.activity_type,
+                                    &a.created_at[..10],
+                                    &a.description[..std::cmp::min(40, a.description.len())]
+                                )
+                            })
+                            .collect();
+
+                        let selection = FuzzySelect::new()
+                            .with_prompt("Select activity to delete")
+                            .items(&labels)
+                            .interact_opt()?;
+
+                        if let Some(idx) = selection {
+                            let activity = deletable[idx];
+                            if dialoguer::Confirm::new()
+                                .with_prompt(format!("Are you sure you want to delete this {}?", activity.activity_type))
+                                .interact()?
+                            {
+                                super::delete_activity(&activity.id).await?;
+                            }
+                        }
                         break;
                     }
                     Key::Escape | Key::Char('q') => {

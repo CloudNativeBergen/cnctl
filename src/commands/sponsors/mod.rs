@@ -99,7 +99,10 @@ pub async fn update(args: UpdateArgs) -> Result<()> {
             "sponsor.crm.update",
             &serde_json::json!({
                 "id": args.id,
-                "data": args,
+                "nextFollowUpAt": args.next_follow_up,
+                "linkedinUrl": args.linkedin_url,
+                "notes": args.notes,
+                "assignedTo": args.assigned_to,
             }),
         )
         .await?;
@@ -108,9 +111,36 @@ pub async fn update(args: UpdateArgs) -> Result<()> {
     Ok(())
 }
 
+pub async fn fetch_organizers(client: &TrpcClient) -> Result<Vec<crate::types::SpeakerRef>> {
+    let organizers: Vec<crate::types::SpeakerRef> = client
+        .query("sponsor.crm.listOrganizers", None)
+        .await?;
+    Ok(organizers)
+}
+
+pub async fn assign(id: &str, speaker_id: Option<&str>) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.update",
+            &serde_json::json!({
+                "id": id,
+                "assignedTo": speaker_id,
+            }),
+        )
+        .await?;
+
+    match speaker_id {
+        Some(sid) => println!("Sponsor {id} assigned to speaker {sid}."),
+        None => println!("Sponsor {id} unassigned."),
+    }
+    Ok(())
+}
+
 pub async fn history(id: &str, json: bool) -> Result<()> {
     let client = require_client()?;
-    let sponsor = fetch_one(&client, id).await?;
+    let mut sponsor = fetch_one(&client, id).await?;
+    sponsor.activities = fetch_activities(&client, id).await?;
 
     if json {
         println!("{}", serde_json::to_string_pretty(&sponsor.activities)?);
@@ -198,6 +228,19 @@ pub async fn send_contract(id: &str, template: Option<&str>) -> Result<()> {
         .await?;
 
     println!("Contract generated and sent successfully.");
+    Ok(())
+}
+
+pub async fn delete_activity(id: &str) -> Result<()> {
+    let client = require_client()?;
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.activities.delete",
+            &serde_json::json!({ "id": id }),
+        )
+        .await?;
+
+    println!("Activity deleted successfully.");
     Ok(())
 }
 

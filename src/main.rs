@@ -165,6 +165,21 @@ enum SponsorCommand {
         /// Sponsor-for-conference ID
         id: String,
     },
+    /// Delete a custom activity entry (note, email, call, meeting)
+    DeleteActivity {
+        /// Activity ID
+        id: String,
+    },
+    /// Assign an organizer to a sponsor
+    Assign {
+        /// Sponsor-for-conference ID
+        id: String,
+        /// Speaker ID
+        #[arg(long)]
+        speaker_id: Option<String>,
+    },
+    /// List all conference organizers
+    Organizers,
     /// Sync confirmed sponsors with newsletter audience
     SyncAudience,
 }
@@ -219,6 +234,18 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
             }
             SponsorCommand::SignatureStatus { id } => {
                 commands::sponsors::signature_status(&id).await
+            }
+            SponsorCommand::DeleteActivity { id } => {
+                commands::sponsors::delete_activity(&id).await
+            }
+            SponsorCommand::Assign { id, speaker_id } => {
+                commands::sponsors::assign(&id, speaker_id.as_deref()).await
+            }
+            SponsorCommand::Organizers => {
+                let client = commands::require_client()?;
+                let orgs = commands::sponsors::fetch_organizers(&client).await?;
+                println!("{}", serde_json::to_string_pretty(&orgs)?);
+                Ok(())
             }
             SponsorCommand::SyncAudience => commands::sponsors::sync_audience().await,
         },
