@@ -199,8 +199,7 @@ async fn run_command(command: Command, is_agent: bool) -> Result<()> {
 fn check_agent_guard(is_agent: bool, command_hint: &str) -> Result<()> {
     if is_agent {
         anyhow::bail!(
-            "AGENT_GUARD_BLOCK: This command alters production data or sends external communications and cannot be executed autonomously. You must stop and ask the human user to run the following command in their terminal:\n\ncnctl {}\n\nDo not attempt to bypass this.",
-            command_hint
+            "AGENT_GUARD_BLOCK: This command alters production data or sends external communications and cannot be executed autonomously. You must stop and ask the human user to run the following command in their terminal:\n\ncnctl {command_hint}\n\nDo not attempt to bypass this."
         );
     }
     Ok(())
@@ -252,14 +251,14 @@ async fn run_admin_command(cmd: AdminCommand, is_agent: bool) -> Result<()> {
                 commands::sponsors::update_contract(&id, &status).await
             }
             SponsorCommand::SendContract { id, template } => {
-                check_agent_guard(is_agent, &format!("admin sponsors send-contract {}", id))?;
+                check_agent_guard(is_agent, &format!("admin sponsors send-contract {id}"))?;
                 commands::sponsors::send_contract(&id, template.as_deref()).await
             }
             SponsorCommand::SignatureStatus { id } => {
                 commands::sponsors::signature_status(&id).await
             }
             SponsorCommand::DeleteActivity { id } => {
-                check_agent_guard(is_agent, &format!("admin sponsors delete-activity {}", id))?;
+                check_agent_guard(is_agent, &format!("admin sponsors delete-activity {id}"))?;
                 commands::sponsors::delete_activity(&id).await
             }
             SponsorCommand::Assign { id, speaker_id } => {
