@@ -277,23 +277,23 @@ async fn run_admin_command(cmd: AdminCommand, is_agent: bool) -> Result<()> {
             commands::speakers::SpeakerCommand::List(args) => commands::speakers::list(args).await,
             commands::speakers::SpeakerCommand::Get { id, json } => {
                 commands::speakers::get(&id, json).await
-                }
-                commands::speakers::SpeakerCommand::Add(args) => commands::speakers::add(args).await,
-                commands::speakers::SpeakerCommand::Delete { id, yes } => {
+            }
+            commands::speakers::SpeakerCommand::Add(args) => commands::speakers::add(args).await,
+            commands::speakers::SpeakerCommand::Delete { id, yes } => {
                 check_agent_guard(is_agent, &format!("admin speakers delete {id}"))?;
                 commands::speakers::delete(&id, yes).await
-                }
-                commands::speakers::SpeakerCommand::Broadcast {
+            }
+            commands::speakers::SpeakerCommand::Broadcast {
                 subject,
                 message,
                 sync,
-                } => {
+            } => {
                 check_agent_guard(is_agent, "admin speakers broadcast")?;
                 commands::speakers::broadcast(subject.as_deref(), message.as_deref(), sync).await
-                }
-                commands::speakers::SpeakerCommand::FindOrCreate(args) => {
+            }
+            commands::speakers::SpeakerCommand::FindOrCreate(args) => {
                 commands::speakers::find_or_create(args).await
-                }
+            }
         },
         AdminCommand::Featured(args) => commands::featured::run(args).await,
         AdminCommand::Status { json } => commands::admin_status::run(json).await,
