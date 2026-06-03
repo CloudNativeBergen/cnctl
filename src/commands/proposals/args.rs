@@ -104,7 +104,7 @@ pub struct CreateArgs {
     pub outline: Option<String>,
 }
 
-#[derive(ValueEnum, Clone, Copy, Serialize)]
+#[derive(ValueEnum, Clone, Copy, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub enum ProposalAction {
     Accept,
@@ -172,6 +172,11 @@ pub struct UpdateArgs {
     #[arg(long)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outline: Option<String>,
+
+    /// Status
+    #[arg(long, value_enum)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<ProposalStatus>,
 }
 
 #[derive(Args)]

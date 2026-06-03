@@ -184,27 +184,46 @@ enum SponsorCommand {
     SyncAudience,
 }
 
-async fn run_command(command: Command) -> Result<()> {
+async fn run_command(command: Command, is_agent: bool) -> Result<()> {
     match command {
         Command::Login => commands::login::run(),
         Command::Logout { yes } => commands::logout::run(yes),
         Command::Status => commands::status::run(),
         Command::AgentInfo { json } => commands::agent_discovery::run_agent_info(json).await,
         Command::HelpJson => commands::agent_discovery::run_help_json(&Cli::command()),
-        Command::Admin(cmd) => run_admin_command(cmd).await,
+        Command::Admin(cmd) => run_admin_command(cmd, is_agent).await,
         Command::Agents(args) => commands::agents::run(args).await,
     }
 }
 
-async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
+fn check_agent_guard(is_agent: bool, command_hint: &str) -> Result<()> {
+    if is_agent {
+        anyhow::bail!(
+            "AGENT_GUARD_BLOCK: This command alters production data or sends external communications and cannot be executed autonomously. You must stop and ask the human user to run the following command in their terminal:\n\ncnctl {}\n\nDo not attempt to bypass this.",
+            command_hint
+        );
+    }
+    Ok(())
+}
+
+async fn run_admin_command(cmd: AdminCommand, is_agent: bool) -> Result<()> {
     match cmd {
         AdminCommand::Proposals(cmd) => match cmd {
             ProposalCommand::List(args) => commands::proposals::list(args).await,
             ProposalCommand::Add(args) => commands::proposals::add(args).await,
             ProposalCommand::Get { id, json } => commands::proposals::get(&id, json).await,
             ProposalCommand::Review(args) => commands::proposals::review(args).await,
-            ProposalCommand::Delete(args) => commands::proposals::delete(args).await,
-            ProposalCommand::Action(args) => commands::proposals::action(args).await,
+            ProposalCommand::Delete(args) => {
+                check_agent_guard(is_agent, &format!("admin proposals delete {}", args.id))?;
+                commands::proposals::delete(args).await
+            }
+            ProposalCommand::Action(args) => {
+                check_agent_guard(
+                    is_agent,
+                    &format!("admin proposals action {} {:?}", args.id, args.action),
+                )?;
+                commands::proposals::action(args).await
+            }
             ProposalCommand::Update(args) => commands::proposals::update(args).await,
             ProposalCommand::NextReview => commands::proposals::next_review().await,
             ProposalCommand::AddSpeaker {
@@ -219,7 +238,10 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
             SponsorCommand::Get { id, json } => commands::sponsors::get(&id, json).await,
             SponsorCommand::History { id, json } => commands::sponsors::history(&id, json).await,
             SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
-            SponsorCommand::Email(args) => commands::sponsors::email::run(args).await,
+            SponsorCommand::Email(args) => {
+                check_agent_guard(is_agent, &format!("admin sponsors email {}", args.id))?;
+                commands::sponsors::email::run(args).await
+            }
             SponsorCommand::MoveStage { id, stage } => {
                 commands::sponsors::move_stage(&id, stage).await
             }
@@ -230,12 +252,16 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
                 commands::sponsors::update_contract(&id, &status).await
             }
             SponsorCommand::SendContract { id, template } => {
+                check_agent_guard(is_agent, &format!("admin sponsors send-contract {}", id))?;
                 commands::sponsors::send_contract(&id, template.as_deref()).await
             }
             SponsorCommand::SignatureStatus { id } => {
                 commands::sponsors::signature_status(&id).await
             }
-            SponsorCommand::DeleteActivity { id } => commands::sponsors::delete_activity(&id).await,
+            SponsorCommand::DeleteActivity { id } => {
+                check_agent_guard(is_agent, &format!("admin sponsors delete-activity {}", id))?;
+                commands::sponsors::delete_activity(&id).await
+            }
             SponsorCommand::Assign { id, speaker_id } => {
                 commands::sponsors::assign(&id, speaker_id.as_deref()).await
             }
@@ -251,19 +277,23 @@ async fn run_admin_command(cmd: AdminCommand) -> Result<()> {
             commands::speakers::SpeakerCommand::List(args) => commands::speakers::list(args).await,
             commands::speakers::SpeakerCommand::Get { id, json } => {
                 commands::speakers::get(&id, json).await
-            }
-            commands::speakers::SpeakerCommand::Add(args) => commands::speakers::add(args).await,
-            commands::speakers::SpeakerCommand::Delete { id, yes } => {
+                }
+                commands::speakers::SpeakerCommand::Add(args) => commands::speakers::add(args).await,
+                commands::speakers::SpeakerCommand::Delete { id, yes } => {
+                check_agent_guard(is_agent, &format!("admin speakers delete {id}"))?;
                 commands::speakers::delete(&id, yes).await
-            }
-            commands::speakers::SpeakerCommand::Broadcast {
+                }
+                commands::speakers::SpeakerCommand::Broadcast {
                 subject,
                 message,
                 sync,
-            } => commands::speakers::broadcast(subject.as_deref(), message.as_deref(), sync).await,
-            commands::speakers::SpeakerCommand::FindOrCreate(args) => {
+                } => {
+                check_agent_guard(is_agent, "admin speakers broadcast")?;
+                commands::speakers::broadcast(subject.as_deref(), message.as_deref(), sync).await
+                }
+                commands::speakers::SpeakerCommand::FindOrCreate(args) => {
                 commands::speakers::find_or_create(args).await
-            }
+                }
         },
         AdminCommand::Featured(args) => commands::featured::run(args).await,
         AdminCommand::Status { json } => commands::admin_status::run(json).await,
@@ -275,7 +305,7 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
     let is_agent = cli.agent;
 
-    let res = run_command(cli.command).await;
+    let res = run_command(cli.command, is_agent).await;
 
     if let Err(e) = res {
         if is_agent {
