@@ -2,7 +2,7 @@ mod args;
 pub mod email;
 mod interactive;
 
-pub use args::{CreateArgs, EmailArgs, ListArgs, NoteArgs, UpdateArgs};
+pub use args::{CreateArgs, EmailArgs, ListArgs, NoteArgs, UpdateArgs, UpdateContactsArgs};
 
 use anyhow::{Context, Result};
 
@@ -108,6 +108,29 @@ pub async fn update(args: UpdateArgs) -> Result<()> {
         .await?;
 
     println!("Sponsor {} updated successfully.", args.id);
+    Ok(())
+}
+
+pub async fn update_contacts(args: UpdateContactsArgs) -> Result<()> {
+    let client = require_client()?;
+    let contact_persons = serde_json::json!([{
+        "_key": uuid::Uuid::new_v4().to_string(),
+        "name": args.name,
+        "email": args.email,
+        "isPrimary": true,
+    }]);
+
+    client
+        .mutate::<serde_json::Value>(
+            "sponsor.crm.update",
+            &serde_json::json!({
+                "id": args.id,
+                "contactPersons": contact_persons,
+            }),
+        )
+        .await?;
+
+    println!("Contacts for sponsor {} updated successfully.", args.id);
     Ok(())
 }
 

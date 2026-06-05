@@ -112,6 +112,20 @@ pub struct UpdateArgs {
 }
 
 #[derive(Args)]
+pub struct UpdateContactsArgs {
+    /// Sponsor-for-conference ID
+    pub id: String,
+
+    /// New primary contact name
+    #[arg(long)]
+    pub name: String,
+
+    /// New primary contact email
+    #[arg(long)]
+    pub email: String,
+}
+
+#[derive(Args)]
 pub struct EmailArgs {
     /// Sponsor-for-conference ID
     pub id: String,

@@ -117,6 +117,8 @@ enum SponsorCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Bulk overwrite contact persons (replaces all existing)
+    UpdateContacts(commands::sponsors::UpdateContactsArgs),
     /// Show sponsor history (activities, notes, stage changes)
     History {
         /// Sponsor-for-conference ID
@@ -234,6 +236,7 @@ async fn run_admin_command(cmd: AdminCommand, is_agent: bool) -> Result<()> {
             SponsorCommand::List(args) => commands::sponsors::list(args).await,
             SponsorCommand::Add(args) => commands::sponsors::create(args).await,
             SponsorCommand::Update(args) => commands::sponsors::update(args).await,
+            SponsorCommand::UpdateContacts(args) => commands::sponsors::update_contacts(args).await,
             SponsorCommand::Get { id, json } => commands::sponsors::get(&id, json).await,
             SponsorCommand::History { id, json } => commands::sponsors::history(&id, json).await,
             SponsorCommand::Note(args) => commands::sponsors::add_note(args).await,
