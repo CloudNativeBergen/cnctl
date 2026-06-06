@@ -94,7 +94,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
     // Global list/search across all speakers
     if args.all {
         let all = fetch_all(&client).await?;
-        let mut filtered = if let Some(ref q) = args.query {
+        let filtered = if let Some(ref q) = args.query {
             let q = q.to_lowercase();
             all.into_iter()
                 .filter(|s| {
@@ -108,44 +108,20 @@ pub async fn list(args: ListArgs) -> Result<()> {
             all
         };
 
-        let total = filtered.len();
-        let limit = args
-            .limit
-            .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
-        let returned = std::cmp::min(total, limit);
-        filtered.truncate(returned);
-
-        if args.compact {
-            let compact: Vec<serde_json::Value> = filtered
-                .into_iter()
-                .map(|s| {
-                    serde_json::json!({
-                        "id": s.id,
-                        "name": s.name,
-                        "email": s.email,
-                        "title": s.title,
-                    })
+        let unhandled =
+            crate::display::print_json_list(filtered, args.limit, args.compact, args.json, |s| {
+                serde_json::json!({
+                    "id": s.id,
+                    "name": s.name,
+                    "email": s.email,
+                    "title": s.title,
                 })
-                .collect();
-            if crate::is_agent() {
-                crate::display::print_agent_list(compact, total, returned)?;
-            } else {
-                println!("{}", serde_json::to_string_pretty(&compact)?);
-            }
-            return Ok(());
-        }
+            })?;
 
-        if !args.json && !crate::is_agent() && console::Term::stdout().is_term() {
-            return interactive::list_interactive(&client, &filtered).await;
-        }
-
-        if args.json || crate::is_agent() {
-            if crate::is_agent() {
-                crate::display::print_agent_list(filtered, total, returned)?;
-            } else {
-                println!("{}", serde_json::to_string_pretty(&filtered)?);
+        if let Some(filtered) = unhandled {
+            if console::Term::stdout().is_term() {
+                return interactive::list_interactive(&client, &filtered).await;
             }
-        } else {
             if filtered.is_empty() {
                 println!("No speakers found matching the criteria.");
                 return Ok(());
@@ -174,41 +150,19 @@ pub async fn list(args: ListArgs) -> Result<()> {
         return interactive::list_interactive(&client, &speakers).await;
     }
 
-    let mut speakers = fetch_conference_speakers(&client, &args).await?;
-    let total = speakers.len();
-    let limit = args
-        .limit
-        .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
-    let returned = std::cmp::min(total, limit);
-    speakers.truncate(returned);
+    let speakers = fetch_conference_speakers(&client, &args).await?;
 
-    if args.compact {
-        let compact: Vec<serde_json::Value> = speakers
-            .into_iter()
-            .map(|s| {
-                serde_json::json!({
-                    "id": s.id,
-                    "name": s.name,
-                    "email": s.email,
-                    "title": s.title,
-                })
+    let unhandled =
+        crate::display::print_json_list(speakers, args.limit, args.compact, args.json, |s| {
+            serde_json::json!({
+                "id": s.id,
+                "name": s.name,
+                "email": s.email,
+                "title": s.title,
             })
-            .collect();
-        if crate::is_agent() {
-            crate::display::print_agent_list(compact, total, returned)?;
-        } else {
-            println!("{}", serde_json::to_string_pretty(&compact)?);
-        }
-        return Ok(());
-    }
+        })?;
 
-    if args.json || crate::is_agent() {
-        if crate::is_agent() {
-            crate::display::print_agent_list(speakers, total, returned)?;
-        } else {
-            println!("{}", serde_json::to_string_pretty(&speakers)?);
-        }
-    } else {
+    if let Some(speakers) = unhandled {
         if speakers.is_empty() {
             println!("No speakers found with the given filters.");
             return Ok(());

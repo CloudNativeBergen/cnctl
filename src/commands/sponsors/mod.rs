@@ -48,66 +48,45 @@ pub async fn fetch_activities(
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
-    let mut all = fetch_all(&client, &args).await?;
-    let total = all.len();
-    let limit = args
-        .limit
-        .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
-    let returned = std::cmp::min(total, limit);
-    all.truncate(returned);
-
-    if args.compact {
-        let compact: Vec<serde_json::Value> = all
-            .into_iter()
-            .map(|s| {
-                serde_json::json!({
-                    "id": s.id,
-                    "name": s.sponsor.as_ref().map(|sp| &sp.name),
-                    "status": s.status,
-                    "tier": s.tier.as_ref().map(|t| &t.title),
-                    "contractStatus": s.contract_status,
-                })
+    let all = fetch_all(&client, &args).await?;
+    let unhandled =
+        crate::display::print_json_list(all, args.limit, args.compact, args.json, |s| {
+            serde_json::json!({
+                "id": s.id,
+                "name": s.sponsor.as_ref().map(|sp| &sp.name),
+                "status": s.status,
+                "tier": s.tier.as_ref().map(|t| &t.title),
+                "contractStatus": s.contract_status,
             })
-            .collect();
-        if crate::is_agent() {
-            crate::display::print_agent_list(compact, total, returned)?;
-        } else {
-            println!("{}", serde_json::to_string_pretty(&compact)?);
-        }
-        return Ok(());
-    }
+        })?;
 
-    if args.json || crate::is_agent() {
-        if crate::is_agent() {
-            crate::display::print_agent_list(all, total, returned)?;
-        } else {
-            println!("{}", serde_json::to_string_pretty(&all)?);
-        }
-    } else if args.search.is_some()
-        || args.status.is_some()
-        || args.assigned_to.is_some()
-        || args.unassigned
-        || args.tags.is_some()
-        || args.tiers.is_some()
-        || args.sort_by.is_some()
-        || args.sort_order.is_some()
-        || args.stale_days.is_some()
-        || args.due
-        || args.has_follow_up
-        || args.has_contact
-        || !console::Term::stdout().is_term()
-    {
-        if all.is_empty() {
-            println!("No sponsors match the given filters.");
-        } else {
-            println!("{}", display::SPONSOR_TABLE_HEADER);
-            for s in &all {
-                println!("{}", display::format_sponsor_row(s));
+    if let Some(all) = unhandled {
+        if args.search.is_some()
+            || args.status.is_some()
+            || args.assigned_to.is_some()
+            || args.unassigned
+            || args.tags.is_some()
+            || args.tiers.is_some()
+            || args.sort_by.is_some()
+            || args.sort_order.is_some()
+            || args.stale_days.is_some()
+            || args.due
+            || args.has_follow_up
+            || args.has_contact
+            || !console::Term::stdout().is_term()
+        {
+            if all.is_empty() {
+                println!("No sponsors match the given filters.");
+            } else {
+                println!("{}", display::SPONSOR_TABLE_HEADER);
+                for s in &all {
+                    println!("{}", display::format_sponsor_row(s));
+                }
+                println!("\n{} sponsors", all.len());
             }
-            println!("\n{} sponsors", all.len());
+        } else {
+            interactive::list_interactive(&client, args).await?;
         }
-    } else {
-        interactive::list_interactive(&client, args).await?;
     }
     Ok(())
 }

@@ -254,57 +254,35 @@ pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
     let sp = ui::spinner("Fetching proposals…");
-    let mut all = fetch_all(&client, &args).await?;
+    let all = fetch_all(&client, &args).await?;
     sp.finish_and_clear();
 
-    let total = all.len();
-    let limit = args
-        .limit
-        .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
-    let returned = std::cmp::min(total, limit);
-    all.truncate(returned);
-
-    if args.compact {
-        let compact: Vec<serde_json::Value> = all
-            .into_iter()
-            .map(|p| {
-                serde_json::json!({
-                    "id": p.id,
-                    "title": p.title,
-                    "status": p.status,
-                    "speakers": p.speakers.iter().map(|s| &s.name).collect::<Vec<_>>()
-                })
+    let unhandled =
+        crate::display::print_json_list(all, args.limit, args.compact, args.json, |p| {
+            serde_json::json!({
+                "id": p.id,
+                "title": p.title,
+                "status": p.status,
+                "speakers": p.speakers.iter().map(|s| &s.name).collect::<Vec<_>>()
             })
-            .collect();
-        if crate::is_agent() {
-            crate::display::print_agent_list(compact, total, returned)?;
-        } else {
-            println!("{}", serde_json::to_string_pretty(&compact)?);
-        }
-        return Ok(());
-    }
+        })?;
 
-    if args.json || crate::is_agent() {
-        if crate::is_agent() {
-            crate::display::print_agent_list(all, total, returned)?;
-        } else {
-            println!("{}", serde_json::to_string_pretty(&all)?);
-        }
-        Ok(())
-    } else if args.has_cli_filters() || !console::Term::stdout().is_term() {
-        if all.is_empty() {
-            println!("No proposals match the given filters.");
-            return Ok(());
-        }
+    if let Some(all) = unhandled {
+        if args.has_cli_filters() || !console::Term::stdout().is_term() {
+            if all.is_empty() {
+                println!("No proposals match the given filters.");
+                return Ok(());
+            }
 
-        println!("{}", display::TABLE_HEADER);
-        for p in &all {
-            println!("{}", display::format_item(p));
+            println!("{}", display::TABLE_HEADER);
+            for p in &all {
+                println!("{}", display::format_item(p));
+            }
+        } else {
+            interactive::list_interactive(&client, &all).await?;
         }
-        Ok(())
-    } else {
-        interactive::list_interactive(&client, &all).await
     }
+    Ok(())
 }
 
 pub async fn get(id: &str, json: bool) -> Result<()> {

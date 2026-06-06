@@ -282,6 +282,35 @@ cnctl admin sponsors email <sponsor-id> --edit
 
 Template variables like `{{{SPONSOR_NAME}}}`, `{{{CONTACT_NAMES}}}`, and `{{{CONFERENCE_TITLE}}}` are automatically resolved from the sponsor and conference context.
 
+## 🤖 Agent Usage
+
+`cnctl` is built from the ground up to be fully operable by LLM agents (like Claude Code, Cursor, or Gemini). Using the `--agent` global flag enforces machine-readable output and drastically reduces token context window waste.
+
+### Token-Optimized Output
+When `--agent` is passed, `cnctl` automatically:
+- Formats all output as compact (single-line) JSON rather than pretty-printed text or tables.
+- Bypasses interactive prompts, menus, and UI spinners.
+- Limits list outputs to a maximum of 50 items and wraps them in a metadata envelope (`{"data": [...], "_meta": {"truncated": true}}`).
+- Returns structured mutation confirmations (`{"ok": true, "id": "..."}`).
+- Returns categorized error codes and actionable hints instead of raw human-readable errors.
+
+### Key Commands for Agents
+```sh
+# Globally enable token-optimized output across any command
+cnctl --agent admin proposals list
+
+# Extreme token compression: Only output essential fields (id, name, status)
+cnctl --agent admin sponsors list --compact
+cnctl --agent admin speakers list --compact
+cnctl --agent admin proposals list --compact
+
+# Agent schema and capabilities discovery
+cnctl agent-info --json
+cnctl help-json
+```
+
+> **Note:** For maximum efficiency, we recommend agents use the [RTK (Rust Token Killer)](https://github.com/rtk-ai/rtk) wrapper when invoking `cnctl` if it's available in your environment (`rtk cnctl ...`).
+
 ## 🛠️ Development
 
 ### Prerequisites

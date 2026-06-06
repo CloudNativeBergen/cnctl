@@ -26,3 +26,42 @@ pub fn print_agent_list<T: serde::Serialize>(
     println!("{}", serde_json::to_string(&out)?);
     Ok(())
 }
+
+pub fn print_json_list<T, C, F>(
+    mut all: Vec<T>,
+    limit: Option<usize>,
+    compact: bool,
+    json: bool,
+    to_compact: F,
+) -> anyhow::Result<Option<Vec<T>>>
+where
+    T: serde::Serialize,
+    C: serde::Serialize,
+    F: Fn(&T) -> C,
+{
+    let total = all.len();
+    let effective_limit = limit.unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
+    let returned = std::cmp::min(total, effective_limit);
+    all.truncate(returned);
+
+    if compact {
+        let compact_data: Vec<C> = all.iter().map(to_compact).collect();
+        if crate::is_agent() {
+            print_agent_list(compact_data, total, returned)?;
+        } else {
+            println!("{}", serde_json::to_string_pretty(&compact_data)?);
+        }
+        return Ok(None);
+    }
+
+    if json || crate::is_agent() {
+        if crate::is_agent() {
+            print_agent_list(&all, total, returned)?;
+        } else {
+            println!("{}", serde_json::to_string_pretty(&all)?);
+        }
+        return Ok(None);
+    }
+
+    Ok(Some(all))
+}
