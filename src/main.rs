@@ -306,6 +306,7 @@ async fn run_admin_command(cmd: AdminCommand, is_agent: bool) -> Result<()> {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
     let is_agent = cli.agent;
+    cnctl::set_is_agent(is_agent);
 
     let res = run_command(cli.command, is_agent).await;
 

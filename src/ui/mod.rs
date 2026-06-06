@@ -51,6 +51,9 @@ pub fn truncate(s: &str, max: usize) -> String {
 }
 
 pub fn spinner(msg: &str) -> ProgressBar {
+    if crate::is_agent() {
+        return ProgressBar::hidden();
+    }
     let pb = ProgressBar::new_spinner();
     pb.set_style(
         ProgressStyle::default_spinner()

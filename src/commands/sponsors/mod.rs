@@ -48,9 +48,13 @@ pub async fn fetch_activities(
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
-    if args.json {
+    if args.json || crate::is_agent() {
         let all = fetch_all(&client, &args).await?;
-        println!("{}", serde_json::to_string_pretty(&all)?);
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&all)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&all)?);
+        }
     } else if args.search.is_some()
         || args.status.is_some()
         || args.assigned_to.is_some()
@@ -84,8 +88,12 @@ pub async fn list(args: ListArgs) -> Result<()> {
 pub async fn get(id: &str, json: bool) -> Result<()> {
     let client = require_client()?;
     let sponsor = fetch_one(&client, id).await?;
-    if json {
-        println!("{}", serde_json::to_string_pretty(&sponsor)?);
+    if json || crate::is_agent() {
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&sponsor)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&sponsor)?);
+        }
     } else {
         display::print_sponsor_detail(&sponsor);
     }
@@ -107,7 +115,11 @@ pub async fn update(args: UpdateArgs) -> Result<()> {
         )
         .await?;
 
-    println!("Sponsor {} updated successfully.", args.id);
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": args.id }));
+    } else {
+        println!("Sponsor {} updated successfully.", args.id);
+    }
     Ok(())
 }
 
@@ -130,7 +142,11 @@ pub async fn update_contacts(args: UpdateContactsArgs) -> Result<()> {
         )
         .await?;
 
-    println!("Contacts for sponsor {} updated successfully.", args.id);
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": args.id }));
+    } else {
+        println!("Contacts for sponsor {} updated successfully.", args.id);
+    }
     Ok(())
 }
 
@@ -152,9 +168,16 @@ pub async fn assign(id: &str, speaker_id: Option<&str>) -> Result<()> {
         )
         .await?;
 
-    match speaker_id {
-        Some(sid) => println!("Sponsor {id} assigned to speaker {sid}."),
-        None => println!("Sponsor {id} unassigned."),
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": id, "speaker_id": speaker_id })
+        );
+    } else {
+        match speaker_id {
+            Some(sid) => println!("Sponsor {id} assigned to speaker {sid}."),
+            None => println!("Sponsor {id} unassigned."),
+        }
     }
     Ok(())
 }
@@ -164,8 +187,12 @@ pub async fn history(id: &str, json: bool) -> Result<()> {
     let mut sponsor = fetch_one(&client, id).await?;
     sponsor.activities = fetch_activities(&client, id).await?;
 
-    if json {
-        println!("{}", serde_json::to_string_pretty(&sponsor.activities)?);
+    if json || crate::is_agent() {
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&sponsor.activities)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&sponsor.activities)?);
+        }
     } else {
         display::print_sponsor_history(&sponsor);
     }
@@ -185,7 +212,11 @@ pub async fn add_note(args: NoteArgs) -> Result<()> {
         )
         .await?;
 
-    println!("Activity logged successfully.");
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": args.id }));
+    } else {
+        println!("Activity logged successfully.");
+    }
     Ok(())
 }
 
@@ -201,7 +232,14 @@ pub async fn move_stage(id: &str, stage: crate::types::SponsorStatus) -> Result<
         )
         .await?;
 
-    println!("Sponsor moved to stage {stage}.");
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": id, "stage": stage })
+        );
+    } else {
+        println!("Sponsor moved to stage {stage}.");
+    }
     Ok(())
 }
 
@@ -217,7 +255,14 @@ pub async fn update_invoice(id: &str, status: &str) -> Result<()> {
         )
         .await?;
 
-    println!("Invoice status updated to {status}.");
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": id, "status": status })
+        );
+    } else {
+        println!("Invoice status updated to {status}.");
+    }
     Ok(())
 }
 
@@ -233,7 +278,14 @@ pub async fn update_contract(id: &str, status: &str) -> Result<()> {
         )
         .await?;
 
-    println!("Contract status updated to {status}.");
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": id, "status": status })
+        );
+    } else {
+        println!("Contract status updated to {status}.");
+    }
     Ok(())
 }
 
@@ -249,7 +301,11 @@ pub async fn send_contract(id: &str, template: Option<&str>) -> Result<()> {
         )
         .await?;
 
-    println!("Contract generated and sent successfully.");
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": id }));
+    } else {
+        println!("Contract generated and sent successfully.");
+    }
     Ok(())
 }
 
@@ -262,7 +318,11 @@ pub async fn delete_activity(id: &str) -> Result<()> {
         )
         .await?;
 
-    println!("Activity deleted successfully.");
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": id }));
+    } else {
+        println!("Activity deleted successfully.");
+    }
     Ok(())
 }
 
@@ -280,7 +340,14 @@ pub async fn signature_status(id: &str) -> Result<()> {
         .and_then(|s| s.as_str())
         .unwrap_or("unknown");
 
-    println!("Signature status synced. Current contract status: {status}");
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": id, "status": status })
+        );
+    } else {
+        println!("Signature status synced. Current contract status: {status}");
+    }
     Ok(())
 }
 
@@ -290,7 +357,11 @@ pub async fn sync_audience() -> Result<()> {
         .mutate::<serde_json::Value>("sponsor.crm.syncAudience", &serde_json::json!({}))
         .await?;
 
-    println!("Sponsor email audience synced successfully.");
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true }));
+    } else {
+        println!("Sponsor email audience synced successfully.");
+    }
     Ok(())
 }
 
@@ -341,6 +412,10 @@ pub async fn create(args: CreateArgs) -> Result<()> {
         )
         .await?;
 
-    println!("Sponsor '{}' added to CRM as {}.", args.name, args.status);
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": sponsor_id }));
+    } else {
+        println!("Sponsor '{}' added to CRM as {}.", args.name, args.status);
+    }
     Ok(())
 }

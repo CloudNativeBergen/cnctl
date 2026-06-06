@@ -12,9 +12,13 @@ pub async fn run(json: bool) -> Result<()> {
     let summary: ConferenceStatusSummary = client.query("status.admin.summary", None).await?;
     sp.finish_and_clear();
 
-    if json {
-        let raw = serde_json::to_string_pretty(&serde_json::to_value(&summary)?)?;
-        println!("{raw}");
+    if json || crate::is_agent() {
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&summary)?);
+        } else {
+            let raw = serde_json::to_string_pretty(&serde_json::to_value(&summary)?)?;
+            println!("{raw}");
+        }
     } else {
         display::print_status(&summary);
     }

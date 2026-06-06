@@ -111,8 +111,12 @@ pub async fn list(args: ListArgs) -> Result<()> {
             return interactive::list_interactive(&client, &filtered).await;
         }
 
-        if args.json {
-            println!("{}", serde_json::to_string_pretty(&filtered)?);
+        if args.json || crate::is_agent() {
+            if crate::is_agent() {
+                println!("{}", serde_json::to_string(&filtered)?);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&filtered)?);
+            }
         } else {
             if filtered.is_empty() {
                 println!("No speakers found matching the criteria.");
@@ -144,8 +148,12 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
     let speakers = fetch_conference_speakers(&client, &args).await?;
 
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&speakers)?);
+    if args.json || crate::is_agent() {
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&speakers)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&speakers)?);
+        }
     } else {
         if speakers.is_empty() {
             println!("No speakers found with the given filters.");
@@ -179,10 +187,14 @@ pub async fn get(id: &str, json: bool) -> Result<()> {
     let speaker = fetch_one(&client, id).await?;
     let speaker_talks = fetch_talks_for_speaker(&client, id).await?;
 
-    if json {
+    if json || crate::is_agent() {
         let mut out = serde_json::to_value(&speaker)?;
         out["talks"] = serde_json::to_value(speaker_talks)?;
-        println!("{}", serde_json::to_string_pretty(&out)?);
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&out)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&out)?);
+        }
     } else {
         println!("{} ({})", speaker.name.bold(), speaker.id.dimmed());
         if let Some(email) = speaker.email.as_str() {
@@ -255,10 +267,14 @@ pub async fn add(args: CreateArgs) -> Result<()> {
     }
 
     let speaker: Speaker = client.mutate("speaker.admin.create", &payload).await?;
-    println!(
-        "Successfully created speaker {} (ID: {})",
-        speaker.name, speaker.id
-    );
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": speaker.id }));
+    } else {
+        println!(
+            "Successfully created speaker {} (ID: {})",
+            speaker.name, speaker.id
+        );
+    }
     Ok(())
 }
 
@@ -276,12 +292,19 @@ pub async fn find_or_create(args: FindOrCreateArgs) -> Result<()> {
     sp.finish_and_clear();
 
     if let Some(speaker) = results.first() {
-        println!(
-            "{} Speaker already exists: {} (ID: {})",
-            "ℹ".blue(),
-            speaker.name.bold(),
-            speaker.id.dimmed()
-        );
+        if crate::is_agent() {
+            println!(
+                "{}",
+                serde_json::json!({ "ok": true, "id": speaker.id, "created": false })
+            );
+        } else {
+            println!(
+                "{} Speaker already exists: {} (ID: {})",
+                "ℹ".blue(),
+                speaker.name.bold(),
+                speaker.id.dimmed()
+            );
+        }
         return Ok(());
     }
 
@@ -298,12 +321,19 @@ pub async fn find_or_create(args: FindOrCreateArgs) -> Result<()> {
     let speaker: Speaker = client.mutate("speaker.admin.create", &payload).await?;
     sp.finish_and_clear();
 
-    println!(
-        "{} Successfully created speaker {} (ID: {})",
-        "✓".green(),
-        speaker.name.bold(),
-        speaker.id.dimmed()
-    );
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": speaker.id, "created": true })
+        );
+    } else {
+        println!(
+            "{} Successfully created speaker {} (ID: {})",
+            "✓".green(),
+            speaker.name.bold(),
+            speaker.id.dimmed()
+        );
+    }
 
     Ok(())
 }
@@ -324,7 +354,11 @@ pub async fn delete(id: &str, yes: bool) -> Result<()> {
     client
         .mutate::<serde_json::Value>("speaker.admin.delete", &serde_json::json!({ "id": id }))
         .await?;
-    println!("Successfully deleted speaker {id}.");
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": id }));
+    } else {
+        println!("Successfully deleted speaker {id}.");
+    }
     Ok(())
 }
 
@@ -360,7 +394,11 @@ pub async fn broadcast(subject: Option<&str>, message: Option<&str>, sync: bool)
             )
             .await?;
 
-        println!("Broadcast email sent successfully.");
+        if crate::is_agent() {
+            println!("{}", serde_json::json!({ "ok": true }));
+        } else {
+            println!("Broadcast email sent successfully.");
+        }
     }
 
     Ok(())

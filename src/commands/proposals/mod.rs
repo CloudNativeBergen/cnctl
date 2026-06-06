@@ -74,10 +74,17 @@ pub async fn add(args: CreateArgs) -> Result<()> {
 
     let proposal: Proposal = client.mutate("proposal.admin.create", &payload).await?;
 
-    println!(
-        "Successfully created proposal {} (ID: {})",
-        proposal.title, proposal.id
-    );
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": proposal.id, "title": proposal.title })
+        );
+    } else {
+        println!(
+            "Successfully created proposal {} (ID: {})",
+            proposal.title, proposal.id
+        );
+    }
     Ok(())
 }
 
@@ -104,7 +111,11 @@ pub async fn delete(args: DeleteArgs) -> Result<()> {
         )
         .await?;
 
-    println!("Successfully deleted proposal {}.", args.id);
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": args.id }));
+    } else {
+        println!("Successfully deleted proposal {}.", args.id);
+    }
     Ok(())
 }
 
@@ -127,7 +138,14 @@ pub async fn action(args: ActionArgs) -> Result<()> {
         .and_then(|s| s.as_str())
         .unwrap_or("unknown");
 
-    println!("Action performed successfully. New status: {status}");
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "id": args.id, "status": status })
+        );
+    } else {
+        println!("Action performed successfully. New status: {status}");
+    }
     Ok(())
 }
 
@@ -143,7 +161,11 @@ pub async fn update(args: UpdateArgs) -> Result<()> {
         )
         .await?;
 
-    println!("Successfully updated proposal {}.", args.id);
+    if crate::is_agent() {
+        println!("{}", serde_json::json!({ "ok": true, "id": args.id }));
+    } else {
+        println!("Successfully updated proposal {}.", args.id);
+    }
     Ok(())
 }
 
@@ -189,7 +211,14 @@ pub async fn add_speaker(proposal_id: &str, speaker_query: &str) -> Result<()> {
     };
 
     update(update_args).await?;
-    println!("Added speaker {speaker_id} to proposal {proposal_id}.");
+    if crate::is_agent() {
+        println!(
+            "{}",
+            serde_json::json!({ "ok": true, "proposal_id": proposal_id, "speaker_id": speaker_id })
+        );
+    } else {
+        println!("Added speaker {speaker_id} to proposal {proposal_id}.");
+    }
 
     Ok(())
 }
@@ -240,12 +269,20 @@ pub async fn list(args: ListArgs) -> Result<()> {
                 })
             })
             .collect();
-        println!("{}", serde_json::to_string_pretty(&compact)?);
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&compact)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&compact)?);
+        }
         return Ok(());
     }
 
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&all)?);
+    if args.json || crate::is_agent() {
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&all)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&all)?);
+        }
         Ok(())
     } else if args.has_cli_filters() || !console::Term::stdout().is_term() {
         if all.is_empty() {
@@ -270,8 +307,12 @@ pub async fn get(id: &str, json: bool) -> Result<()> {
     let proposal = fetch_one(&client, id).await?;
     sp.finish_and_clear();
 
-    if json {
-        println!("{}", serde_json::to_string_pretty(&proposal)?);
+    if json || crate::is_agent() {
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&proposal)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&proposal)?);
+        }
     } else {
         crate::display::print_proposal_detail(&proposal);
     }
