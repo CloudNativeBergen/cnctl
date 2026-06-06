@@ -87,6 +87,7 @@ pub async fn fetch_talks_for_speaker(client: &TrpcClient, id: &str) -> Result<Ve
     Ok(speaker_talks)
 }
 
+#[allow(clippy::too_many_lines)]
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
@@ -107,7 +108,27 @@ pub async fn list(args: ListArgs) -> Result<()> {
             all
         };
 
-        if !args.json && console::Term::stdout().is_term() {
+        if args.compact {
+            let compact: Vec<serde_json::Value> = filtered
+                .into_iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "id": s.id,
+                        "name": s.name,
+                        "email": s.email,
+                        "title": s.title,
+                    })
+                })
+                .collect();
+            if crate::is_agent() {
+                println!("{}", serde_json::to_string(&compact)?);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&compact)?);
+            }
+            return Ok(());
+        }
+
+        if !args.json && !crate::is_agent() && console::Term::stdout().is_term() {
             return interactive::list_interactive(&client, &filtered).await;
         }
 
@@ -147,6 +168,26 @@ pub async fn list(args: ListArgs) -> Result<()> {
     }
 
     let speakers = fetch_conference_speakers(&client, &args).await?;
+
+    if args.compact {
+        let compact: Vec<serde_json::Value> = speakers
+            .into_iter()
+            .map(|s| {
+                serde_json::json!({
+                    "id": s.id,
+                    "name": s.name,
+                    "email": s.email,
+                    "title": s.title,
+                })
+            })
+            .collect();
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&compact)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&compact)?);
+        }
+        return Ok(());
+    }
 
     if args.json || crate::is_agent() {
         if crate::is_agent() {

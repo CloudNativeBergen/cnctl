@@ -77,6 +77,11 @@ pub struct ListArgs {
     #[serde(rename = "hasContactInfo", skip_serializing_if = "std::ops::Not::not")]
     pub has_contact: bool,
 
+    /// Output minimal JSON fields
+    #[arg(long)]
+    #[serde(skip)]
+    pub compact: bool,
+
     /// Output as JSON
     #[arg(long)]
     #[serde(skip)]

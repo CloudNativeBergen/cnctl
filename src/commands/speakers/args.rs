@@ -72,6 +72,11 @@ pub struct FindOrCreateArgs {
 #[derive(Args, Default, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ListArgs {
+    /// Output minimal JSON fields
+    #[arg(long)]
+    #[serde(skip)]
+    pub compact: bool,
+
     /// Output as JSON
     #[arg(long)]
     #[serde(skip)]

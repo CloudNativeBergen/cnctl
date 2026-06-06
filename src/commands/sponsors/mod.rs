@@ -48,6 +48,28 @@ pub async fn fetch_activities(
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
+    if args.compact {
+        let all = fetch_all(&client, &args).await?;
+        let compact: Vec<serde_json::Value> = all
+            .into_iter()
+            .map(|s| {
+                serde_json::json!({
+                    "id": s.id,
+                    "name": s.sponsor.as_ref().map(|sp| &sp.name),
+                    "status": s.status,
+                    "tier": s.tier.as_ref().map(|t| &t.title),
+                    "contractStatus": s.contract_status,
+                })
+            })
+            .collect();
+        if crate::is_agent() {
+            println!("{}", serde_json::to_string(&compact)?);
+        } else {
+            println!("{}", serde_json::to_string_pretty(&compact)?);
+        }
+        return Ok(());
+    }
+
     if args.json || crate::is_agent() {
         let all = fetch_all(&client, &args).await?;
         if crate::is_agent() {
