@@ -48,8 +48,15 @@ pub async fn fetch_activities(
 pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
+    let mut all = fetch_all(&client, &args).await?;
+    let total = all.len();
+    let limit = args
+        .limit
+        .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
+    let returned = std::cmp::min(total, limit);
+    all.truncate(returned);
+
     if args.compact {
-        let all = fetch_all(&client, &args).await?;
         let compact: Vec<serde_json::Value> = all
             .into_iter()
             .map(|s| {
@@ -63,7 +70,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
             })
             .collect();
         if crate::is_agent() {
-            println!("{}", serde_json::to_string(&compact)?);
+            crate::display::print_agent_list(compact, total, returned)?;
         } else {
             println!("{}", serde_json::to_string_pretty(&compact)?);
         }
@@ -71,9 +78,8 @@ pub async fn list(args: ListArgs) -> Result<()> {
     }
 
     if args.json || crate::is_agent() {
-        let all = fetch_all(&client, &args).await?;
         if crate::is_agent() {
-            println!("{}", serde_json::to_string(&all)?);
+            crate::display::print_agent_list(all, total, returned)?;
         } else {
             println!("{}", serde_json::to_string_pretty(&all)?);
         }
@@ -91,7 +97,6 @@ pub async fn list(args: ListArgs) -> Result<()> {
         || args.has_contact
         || !console::Term::stdout().is_term()
     {
-        let all = fetch_all(&client, &args).await?;
         if all.is_empty() {
             println!("No sponsors match the given filters.");
         } else {

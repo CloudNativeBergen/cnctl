@@ -32,8 +32,8 @@ pub async fn run_agent_info(json_out: bool) -> Result<()> {
                     }
                 ],
                 "flags": {
-                    "--compact": "Reduces list output tokens by 90%",
-                    "--agent": "Enables machine-readable error hints"
+                    "--compact": "Reduces list output tokens significantly (Sponsors/Speakers/Proposals)",
+                    "--agent": "Globally enables token-optimized JSON output, machine-readable errors, and bypasses interactive prompts"
                 }
             },
             "persona": agents_config
@@ -57,6 +57,10 @@ fn serialize_command(cmd: &Command) -> Value {
 
     let args: Vec<Value> = cmd
         .get_arguments()
+        .filter(|arg| {
+            let id = arg.get_id().as_str();
+            id != "help" && id != "version"
+        })
         .map(|arg| {
             json!({
                 "name": arg.get_id().to_string(),

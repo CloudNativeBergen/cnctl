@@ -59,6 +59,11 @@ pub struct ListArgs {
     /// Sort order
     #[arg(long = "order", value_enum, default_value_t = SortOrder::Desc)]
     pub sort_order: SortOrder,
+
+    /// Limit the number of items returned
+    #[arg(long)]
+    #[serde(skip)]
+    pub limit: Option<usize>,
 }
 
 #[derive(Args, Default, Clone, Serialize)]

@@ -254,8 +254,15 @@ pub async fn list(args: ListArgs) -> Result<()> {
     let client = require_client()?;
 
     let sp = ui::spinner("Fetching proposals…");
-    let all = fetch_all(&client, &args).await?;
+    let mut all = fetch_all(&client, &args).await?;
     sp.finish_and_clear();
+
+    let total = all.len();
+    let limit = args
+        .limit
+        .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
+    let returned = std::cmp::min(total, limit);
+    all.truncate(returned);
 
     if args.compact {
         let compact: Vec<serde_json::Value> = all
@@ -270,7 +277,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
             })
             .collect();
         if crate::is_agent() {
-            println!("{}", serde_json::to_string(&compact)?);
+            crate::display::print_agent_list(compact, total, returned)?;
         } else {
             println!("{}", serde_json::to_string_pretty(&compact)?);
         }
@@ -279,7 +286,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
     if args.json || crate::is_agent() {
         if crate::is_agent() {
-            println!("{}", serde_json::to_string(&all)?);
+            crate::display::print_agent_list(all, total, returned)?;
         } else {
             println!("{}", serde_json::to_string_pretty(&all)?);
         }

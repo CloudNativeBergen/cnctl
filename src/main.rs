@@ -314,22 +314,27 @@ async fn main() -> Result<()> {
         if is_agent {
             let mut hints = Vec::new();
             let error_str = e.to_string();
+            let mut error_code = "UNKNOWN_ERROR";
 
             if error_str.contains("Authentication required") || error_str.contains("unauthorized") {
+                error_code = "AUTH_REQUIRED";
                 hints.push("Run 'cnctl login' to authenticate.");
-            }
-            if error_str.contains("not found") {
+            } else if error_str.contains("not found") {
+                error_code = "NOT_FOUND";
                 hints.push("Use 'list' commands with '--search' or '--all' to verify IDs.");
-            }
-            if error_str.contains("conference context") {
+            } else if error_str.contains("conference context") {
+                error_code = "CONFERENCE_NOT_SET";
                 hints.push("Run 'cnctl status' to verify your active conference.");
+            } else if error_str.contains("AGENT_GUARD_BLOCK") {
+                error_code = "AGENT_GUARD_BLOCK";
             }
 
             let err_json = serde_json::json!({
+                "error_code": error_code,
                 "error": error_str,
                 "hints": hints
             });
-            eprintln!("{}", serde_json::to_string_pretty(&err_json)?);
+            eprintln!("{}", serde_json::to_string(&err_json)?);
         } else {
             eprintln!("{} {}", "Error:".red().bold(), e);
         }

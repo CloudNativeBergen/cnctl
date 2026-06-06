@@ -27,3 +27,11 @@ rtk mise run test    # unit + E2E
 - Commits **must** use Conventional Commits (e.g., `feat(sponsors): add X`, `fix: Y`).
 - Release notes include: `feat`, `fix`, `perf`, `refactor`, `docs`.
 - Releases/tags are fully automated via GitHub Actions on `main` push. Do **not** tag manually.
+
+## Agent Mode
+Always use `--agent` flag globally for token-optimized execution:
+- `rtk cnctl --agent admin proposals list` → Compact JSON, metadata envelope
+- `rtk cnctl --agent admin sponsors list --compact` → Minimal essential fields only
+- `rtk cnctl --agent admin status` → JSON dashboard
+- Mutations return structured data `{"ok": true, "id": "..."}`
+- Errors return structured format `{"error_code": "...", "error": "...", "hints": [...]}`

@@ -94,7 +94,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
     // Global list/search across all speakers
     if args.all {
         let all = fetch_all(&client).await?;
-        let filtered = if let Some(ref q) = args.query {
+        let mut filtered = if let Some(ref q) = args.query {
             let q = q.to_lowercase();
             all.into_iter()
                 .filter(|s| {
@@ -107,6 +107,13 @@ pub async fn list(args: ListArgs) -> Result<()> {
         } else {
             all
         };
+
+        let total = filtered.len();
+        let limit = args
+            .limit
+            .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
+        let returned = std::cmp::min(total, limit);
+        filtered.truncate(returned);
 
         if args.compact {
             let compact: Vec<serde_json::Value> = filtered
@@ -121,7 +128,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
                 })
                 .collect();
             if crate::is_agent() {
-                println!("{}", serde_json::to_string(&compact)?);
+                crate::display::print_agent_list(compact, total, returned)?;
             } else {
                 println!("{}", serde_json::to_string_pretty(&compact)?);
             }
@@ -134,7 +141,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
         if args.json || crate::is_agent() {
             if crate::is_agent() {
-                println!("{}", serde_json::to_string(&filtered)?);
+                crate::display::print_agent_list(filtered, total, returned)?;
             } else {
                 println!("{}", serde_json::to_string_pretty(&filtered)?);
             }
@@ -167,7 +174,13 @@ pub async fn list(args: ListArgs) -> Result<()> {
         return interactive::list_interactive(&client, &speakers).await;
     }
 
-    let speakers = fetch_conference_speakers(&client, &args).await?;
+    let mut speakers = fetch_conference_speakers(&client, &args).await?;
+    let total = speakers.len();
+    let limit = args
+        .limit
+        .unwrap_or_else(|| if crate::is_agent() { 50 } else { usize::MAX });
+    let returned = std::cmp::min(total, limit);
+    speakers.truncate(returned);
 
     if args.compact {
         let compact: Vec<serde_json::Value> = speakers
@@ -182,7 +195,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
             })
             .collect();
         if crate::is_agent() {
-            println!("{}", serde_json::to_string(&compact)?);
+            crate::display::print_agent_list(compact, total, returned)?;
         } else {
             println!("{}", serde_json::to_string_pretty(&compact)?);
         }
@@ -191,7 +204,7 @@ pub async fn list(args: ListArgs) -> Result<()> {
 
     if args.json || crate::is_agent() {
         if crate::is_agent() {
-            println!("{}", serde_json::to_string(&speakers)?);
+            crate::display::print_agent_list(speakers, total, returned)?;
         } else {
             println!("{}", serde_json::to_string_pretty(&speakers)?);
         }

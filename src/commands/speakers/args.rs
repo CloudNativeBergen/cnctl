@@ -77,6 +77,11 @@ pub struct ListArgs {
     #[serde(skip)]
     pub compact: bool,
 
+    /// Limit the number of items returned
+    #[arg(long)]
+    #[serde(skip)]
+    pub limit: Option<usize>,
+
     /// Output as JSON
     #[arg(long)]
     #[serde(skip)]
