@@ -37,6 +37,10 @@ run = "cargo test -- --nocapture"
 description = "Remove build artifacts"
 run = "cargo clean"
 
+[tasks.install]
+description = "Install the CLI locally"
+run = "cargo install --path ."
+
 # --- Agent Optimized Tasks ---
 
 [tasks.agent-check]
