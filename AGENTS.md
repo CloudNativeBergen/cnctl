@@ -7,10 +7,10 @@ Rust CLI (`cnctl`) for managing Cloud Native Days Norway conferences. Cargo proj
 
 ## Build & Test
 ```sh
-rtk mise run check   # clippy + fmt-check + test (parallel)
-rtk mise run clippy  # pedantic lints, warnings as errors
-rtk mise run fmt     # format with rustfmt
-rtk mise run test    # unit + E2E
+rtk mise run agent-check   # token-optimized clippy + fmt-check + test
+rtk mise run agent-clippy  # pedantic lints, short message format
+rtk mise run fmt           # format with rustfmt
+rtk mise run agent-test    # unit + E2E (quiet mode)
 ```
 
 ## Architecture & Conventions

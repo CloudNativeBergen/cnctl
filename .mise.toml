@@ -36,3 +36,17 @@ run = "cargo test -- --nocapture"
 [tasks.clean]
 description = "Remove build artifacts"
 run = "cargo clean"
+
+# --- Agent Optimized Tasks ---
+
+[tasks.agent-check]
+description = "Run all checks optimized for LLM token limits"
+depends = ["agent-clippy", "fmt-check", "agent-test"]
+
+[tasks.agent-clippy]
+description = "Run clippy lints with compact output for agents"
+run = "cargo clippy --all-targets --message-format=short -- -D warnings"
+
+[tasks.agent-test]
+description = "Run tests with quiet output for agents"
+run = "cargo test -q"

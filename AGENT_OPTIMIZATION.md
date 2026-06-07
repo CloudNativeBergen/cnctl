@@ -64,5 +64,12 @@ Agents query help output (`help-json`) to discover CLI capabilities.
 - Boilerplate arguments injected by the argument parser (e.g., `--help`, `--version`) are filtered out before JSON serialization.
 - Removing repetitive definitions across numerous subcommands saves thousands of tokens during schema ingestion.
 
+## 7. Build & Test Tooling (`mise` tasks)
+Standard build tooling often prints hundreds of lines of compiling statuses or repetitive "ok" messages.
+
+**Mechanism:**
+- Dedicated agent tasks in `.mise.toml` (`agent-test`, `agent-clippy`) wrap the native Cargo commands with quiet flags (`cargo test -q`) and short message formats (`--message-format=short`).
+- This ensures test suites and lints return only a few lines of context unless there is an actual failure, saving massive amounts of context during continuous agent iteration.
+
 ## Implementation Details
 The core token-efficiency logic is abstracted into `crate::display::print_json_list`. This generic helper manages limits, metadata wrapping, and compact/pretty serialization, applying the agent optimizations consistently across commands.
